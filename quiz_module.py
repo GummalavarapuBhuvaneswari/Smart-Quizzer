@@ -3,6 +3,7 @@ import os
 import ast
 import time
 from dotenv import load_dotenv
+from streamlit_autorefresh import st_autorefresh
 from groq import Groq
 
 load_dotenv()
@@ -98,46 +99,80 @@ def show_instructions():
 
 # --- Display Quiz ---
 def display_quiz(questions):
-    # Dynamic deadline
-    if not st.session_state.deadline:
-        # Example: Easy = 60 sec per question, Medium = 90 sec, Hard = 120 sec
-        time_per_question = {"Easy":60, "Medium":90, "Hard":120}
-        st.session_state.deadline = time.time() + time_per_question[st.session_state.level]*len(questions)
-        st.session_state.time_limit = time_per_question[st.session_state.level]*len(questions)
+    # --- Auto-refresh only if quiz is active and not finished ---
+    if st.session_state.get("quiz_active", True) and not st.session_state.get("quiz_finished", False):
+        st_autorefresh(interval=1000, key="quiz_timer_refresh")
 
+    # --- Initialize deadline ---
+    if "deadline" not in st.session_state or st.session_state.deadline is None:
+        time_per_question = {"Easy": 60, "Medium": 90, "Hard": 120}
+        total_time = time_per_question[st.session_state.level] * len(questions)
+        st.session_state.deadline = time.time() + total_time
+        st.session_state.time_limit = total_time
+
+    # --- Calculate remaining time ---
     remaining_time = int(st.session_state.deadline - time.time())
+
+    # --- Auto-submit when time runs out ---
     if remaining_time <= 0:
         st.session_state.quiz_active = False
         st.session_state.quiz_finished = True
+        st.success("⏰ Time's up! Quiz submitted automatically.")
         st.rerun()
 
-    minutes, seconds = divmod(remaining_time, 60)
-    st.info(f"⏳ Time Remaining: {minutes:02d}:{seconds:02d}")
+    # --- Timer display ---
+    minutes, seconds = divmod(max(remaining_time, 0), 60)
+    st.markdown(
+        f"""
+        <div style="
+            background-color:#FFF3E0;
+            border:2px solid #FF9800;
+            border-radius:8px;
+            padding:8px;
+            font-size:18px;
+            text-align:center;
+            width:220px;
+        ">
+            ⏳ <b>Time Left:</b> {minutes:02d}:{seconds:02d}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    # --- If quiz already finished, stop here ---
+    if st.session_state.get("quiz_finished", False):
+        st.write("✅ Quiz has been submitted.")
+        return
+
+    # --- Show current question ---
     q = questions[st.session_state.current_question]
-    st.subheader(f"Q{st.session_state.current_question+1}. {q['question']}")
+    st.subheader(f"Q{st.session_state.current_question + 1}. {q['question']}")
+
     st.session_state.selected_options[st.session_state.current_question] = st.radio(
         "Choose an option:",
         q["options"],
         index=None if st.session_state.selected_options[st.session_state.current_question] is None
         else q["options"].index(st.session_state.selected_options[st.session_state.current_question]),
-        key=f"q{st.session_state.current_question}"
+        key=f"q{st.session_state.current_question}",
     )
 
+    # --- Navigation buttons ---
     col1, col2, col3 = st.columns(3)
     if col1.button("⬅️ Previous", disabled=st.session_state.current_question == 0):
         st.session_state.current_question -= 1
         st.rerun()
-    if col2.button("➡️ Next", disabled=st.session_state.current_question == len(questions)-1):
+
+    if col2.button("➡️ Next", disabled=st.session_state.current_question == len(questions) - 1):
         st.session_state.current_question += 1
         st.rerun()
-    
-    # Submit button only on the last question
-    if st.session_state.current_question == len(questions)-1:
-        if col3.button("✅ Submit"):
-            st.session_state.quiz_active = False
-            st.session_state.quiz_finished = True
-            st.rerun()
+
+    # --- Manual submit button ---
+    if col3.button("✅ Submit"):
+        st.session_state.quiz_active = False
+        st.session_state.quiz_finished = True
+        st.success("✅ Quiz submitted successfully.")
+        st.rerun()
+
 
 # --- Show Results ---
 def show_results(questions):
