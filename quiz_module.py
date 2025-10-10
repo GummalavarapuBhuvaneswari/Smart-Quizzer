@@ -1,12 +1,25 @@
+# quiz_module.py
 import streamlit as st
 import os
 import ast
 import time
+import threading
 from dotenv import load_dotenv
-from streamlit_autorefresh import st_autorefresh
 from groq import Groq
+from streamlit_autorefresh import st_autorefresh
+from adaptive_engine import save_performance, get_quiz_difficulty, show_recommendation
 
 load_dotenv()
+
+def save_performance_async(username, subject, topic, score, total, accuracy, level):
+    """Save performance in background so UI doesn't wait."""
+    thread = threading.Thread(
+        target=save_performance,
+        args=(username, subject, topic, score, total, accuracy, level),
+        daemon=True
+    )
+    thread.start()
+
 
 # --- Groq Client ---
 groq_api_key = os.getenv("GROQ_API_KEY")
@@ -17,24 +30,32 @@ client_groq = Groq(api_key=groq_api_key)
 # --- Initialize Session State ---
 for key in ["quiz_active","quiz_finished","show_instructions",
             "generated_questions","selected_options",
-            "current_question","time_limit","deadline"]:
+            "current_question","time_limit","deadline",
+            "quiz_type","num_questions","level"]:
     if key not in st.session_state:
         st.session_state[key] = False if "quiz" in key else None if key != "selected_options" else []
 
 # --- Helper: Generate Questions ---
 def generate_questions(prompt):
+    
     try:
         response = client_groq.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # updated model
+            model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are a quiz generator. Return only Python list."},
+                {"role": "system", "content": "You are a quiz generator. Return only Python list of dictionaries."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.5,
             max_tokens=800,
         )
         raw = response.choices[0].message.content
-        return ast.literal_eval(raw)
+        questions= ast.literal_eval(raw)
+
+         # Ensure every question has an explanation key
+        for q in questions:
+            if "explanation" not in q:
+                q["explanation"] = "No explanation provided."
+        return questions
     except Exception as e:
         st.error(f"⚠️ Error generating quiz: {e}")
         return []
@@ -43,16 +64,13 @@ def generate_questions(prompt):
 def show_instructions():
     st.title("📝 Quiz Instructions")
 
-    # Initialize start_time if it doesn't exist
     if "start_time" not in st.session_state or st.session_state.start_time is None:
         st.session_state.start_time = time.time()
-    
-    
-    # Calculate dynamic time based on difficulty and number of questions
-    time_per_question = {"Easy":60, "Medium":90, "Hard":120}  # seconds per question
+
+    time_per_question = {"Easy":60, "Medium":90, "Hard":120}
     total_time = time_per_question[st.session_state.level] * st.session_state.num_questions
-    st.session_state.time_limit = total_time  # ensure time_limit is consistent
-    
+    st.session_state.time_limit = total_time
+
     st.markdown(
         f"""
         <div style="border:2px solid #FF9800; border-radius:10px; padding:20px; background-color:#FFF3E0;">
@@ -68,11 +86,9 @@ def show_instructions():
         </div>
         """, unsafe_allow_html=True
     )
-    
-    # Add spacing below instruction box
+
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
 
-    # Start Quiz button centered in columns
     col1, col2, col3 = st.columns([2, 2, 1])
     with col2:
         if st.button("🚀 Start Quiz", key="start_quiz_button"):
@@ -81,7 +97,6 @@ def show_instructions():
             st.session_state.deadline = st.session_state.start_time + st.session_state.time_limit
             st.rerun()
 
-    # Style button with green color
     st.markdown(
         """
         <style>
@@ -99,28 +114,23 @@ def show_instructions():
 
 # --- Display Quiz ---
 def display_quiz(questions):
-    # --- Auto-refresh only if quiz is active and not finished ---
     if st.session_state.get("quiz_active", True) and not st.session_state.get("quiz_finished", False):
         st_autorefresh(interval=1000, key="quiz_timer_refresh")
 
-    # --- Initialize deadline ---
     if "deadline" not in st.session_state or st.session_state.deadline is None:
         time_per_question = {"Easy": 60, "Medium": 90, "Hard": 120}
         total_time = time_per_question[st.session_state.level] * len(questions)
         st.session_state.deadline = time.time() + total_time
         st.session_state.time_limit = total_time
 
-    # --- Calculate remaining time ---
     remaining_time = int(st.session_state.deadline - time.time())
 
-    # --- Auto-submit when time runs out ---
     if remaining_time <= 0:
         st.session_state.quiz_active = False
         st.session_state.quiz_finished = True
         st.success("⏰ Time's up! Quiz submitted automatically.")
         st.rerun()
 
-    # --- Timer display ---
     minutes, seconds = divmod(max(remaining_time, 0), 60)
     st.markdown(
         f"""
@@ -139,12 +149,10 @@ def display_quiz(questions):
         unsafe_allow_html=True,
     )
 
-    # --- If quiz already finished, stop here ---
     if st.session_state.get("quiz_finished", False):
         st.write("✅ Quiz has been submitted.")
         return
 
-    # --- Show current question ---
     q = questions[st.session_state.current_question]
     st.subheader(f"Q{st.session_state.current_question + 1}. {q['question']}")
 
@@ -156,7 +164,6 @@ def display_quiz(questions):
         key=f"q{st.session_state.current_question}",
     )
 
-    # --- Navigation buttons ---
     col1, col2, col3 = st.columns(3)
     if col1.button("⬅️ Previous", disabled=st.session_state.current_question == 0):
         st.session_state.current_question -= 1
@@ -166,26 +173,47 @@ def display_quiz(questions):
         st.session_state.current_question += 1
         st.rerun()
 
-    # --- Manual submit button ---
     if col3.button("✅ Submit"):
         st.session_state.quiz_active = False
         st.session_state.quiz_finished = True
         st.success("✅ Quiz submitted successfully.")
         st.rerun()
 
-
 # --- Show Results ---
 def show_results(questions):
-    correct = sum(1 for i,q in enumerate(questions) if st.session_state.selected_options[i] == q["answer"])
+    correct = sum(
+        1 for i, q in enumerate(questions)
+        if st.session_state.selected_options[i] == q["answer"]
+    )
     total = len(questions)
-    accuracy = (correct/total)*100 if total>0 else 0
+    accuracy = (correct / total) * 100 if total > 0 else 0
+
+    username = st.session_state.get("username", "Guest")
+    subject = st.session_state.get("subject", "")
+    topic = st.session_state.get("topic", "")
+
+    # --- Save performance only once ---
+    if "performance_saved" not in st.session_state:
+        st.session_state.performance_saved = False
+
+    if not st.session_state.performance_saved:
+        try:
+            save_performance_async(
+                username,
+                subject,
+                topic,
+                correct,
+                total,
+                accuracy,
+                st.session_state.level
+            )
+            st.session_state.performance_saved = True  # ✅ mark as saved
+        except Exception as e:
+            st.error(f"⚠️ Could not save performance: {e}")
 
     st.success("🎉 Quiz Completed!")
     st.markdown("### 📊 Accuracy Overview")
     st.progress(accuracy / 100)
-    #st.write(f"✅ Score: {correct}/{total}")
-
-     # Highlighted Score
     st.markdown(
         f"""
         <div style="
@@ -200,68 +228,77 @@ def show_results(questions):
         ">
             ✅ Your Score: {correct} / {total} ({accuracy:.2f}%)
         </div>
-        """, unsafe_allow_html=True
+        """,
+        unsafe_allow_html=True
     )
 
-    # Initialize review_clicked flag if not present
+    # --- Show recommended next difficulty ---
+    try:
+        show_recommendation(username, subject, topic)
+    except Exception as e:
+        st.warning(f"⚠️ Could not generate recommendation: {e}")
+
+    # --- Review Result Button ---
     if "review_clicked" not in st.session_state:
         st.session_state.review_clicked = False
 
-    # Add space before Review button
     st.markdown("<div style='margin-top:25px;'></div>", unsafe_allow_html=True)
-
-    # Review button
-    if not st.session_state.review_clicked:  # Show only if not clicked yet
+    if not st.session_state.review_clicked:
         if st.button("📝 Review Result"):
             st.session_state.review_clicked = True
             st.rerun()
 
-    # Show review section only if button was clicked
+    # --- Review Answers ---
     if st.session_state.review_clicked:
         st.subheader("Review Your Answers")
+        review_html = ""
         for i, q in enumerate(questions):
             user_ans = st.session_state.selected_options[i]
             correct_ans = q["answer"]
+            explanation = q.get("explanation", "No explanation provided.")
+            color = "green" if user_ans == correct_ans else "red"
+            symbol = "✅" if user_ans == correct_ans else "❌"
 
-            if user_ans == correct_ans:
-                color = "green"
-                symbol = "✅"
-            else:
-                color = "red"
-                symbol = "❌"
-
-            st.markdown(f"**Q{i+1}: {q['question']}**")
-            st.markdown(
-                f"Your Answer: <span style='color:{color}; font-weight:bold'>{user_ans} {symbol}</span>", 
-                unsafe_allow_html=True
-            )
+            review_html += f"<b>Q{i+1}: {q['question']}</b><br>"
+            review_html += f"Your Answer: <span style='color:{color}; font-weight:bold'>{user_ans} {symbol}</span><br>"
             if user_ans != correct_ans:
-                st.markdown(
-                    f"Correct Answer: <span style='color:green; font-weight:bold'>{correct_ans} ✅</span>", 
-                    unsafe_allow_html=True
-                )
-            st.markdown("---")
+                review_html += f"Correct Answer: <span style='color:green; font-weight:bold'>{correct_ans} ✅</span><br>"
+            review_html += f"💡 Explanation: {explanation}<br>"
+            review_html += "<hr>"
 
-    # Buttons: Reset Quiz (left) & Logout (right)
-    col_left, col_right = st.columns([3,1])
+        st.markdown(review_html, unsafe_allow_html=True)
+
+    # --- Reset Quiz ---
+    col_left, col_right = st.columns([3, 1])
     with col_right:
         if st.button("🔄 Reset Quiz"):
-            for key in ["quiz_active", "quiz_finished", "show_instructions",
-                    "generated_questions", "selected_options",
-                    "current_question", "time_limit", "deadline",
-                    "start_time", "review_clicked"]:
+            for key in [
+                "quiz_active", "quiz_finished", "show_instructions",
+                "generated_questions", "selected_options",
+                "current_question", "time_limit", "deadline",
+                "start_time", "review_clicked", "level", "num_questions",
+                "subject", "topic", "quiz_type", "performance_saved"
+            ]:
                 st.session_state[key] = None
             st.rerun()
-    
 
 
 # --- Quiz Modes ---
 def paragraph_quiz():
     text = st.text_area("📖 Enter a paragraph:")
     num_qs = st.number_input("🔢 Number of Questions", min_value=1, max_value=20, value=3)
-    level = st.selectbox("⚡ Difficulty Level", ["Easy","Medium","Hard"])
+
     if st.button("Generate Quiz"):
-        prompt = f"Generate {num_qs} MCQs from the paragraph:\n{text}\nDifficulty: {level}.\nReturn Python list with dicts: question, options, answer."
+        username = st.session_state.get("username","Guest")
+
+        # Use first 30 chars of paragraph as pseudo-topic
+        pseudo_topic = text[:30]
+
+        # Automatically get recommended difficulty
+        recommended_level = get_quiz_difficulty(username, "Paragraph", pseudo_topic)
+
+        # Generate prompt using recommended level
+        prompt = f"Generate {num_qs} MCQs from the paragraph:\n{text}\nDifficulty: {recommended_level}.\nReturn Python list with dicts: question, options, answer,explanation (one-line explanation for the correct answer)."
         questions = generate_questions(prompt)
         if questions:
             st.session_state.generated_questions = questions
@@ -270,18 +307,26 @@ def paragraph_quiz():
             st.session_state.show_instructions = True
             st.session_state.current_question = 0
             st.session_state.selected_options = [None]*len(questions)
-            st.session_state.time_limit = {"Easy":3,"Medium":5,"Hard":8}[level]*60
-            st.session_state.level = level
+            st.session_state.time_limit = {"Easy":3,"Medium":5,"Hard":8}[recommended_level]*60
+            st.session_state.level = recommended_level
             st.session_state.num_questions = len(questions)
+            st.session_state.subject = "Paragraph"
+            st.session_state.topic = pseudo_topic
             st.rerun()
 
 def subject_topic_quiz():
     subject = st.text_input("📘 Enter Subject:")
     topic = st.text_input("📌 Enter Topic:")
     num_qs = st.number_input("🔢 Number of Questions", min_value=1, max_value=20, value=3)
-    level = st.selectbox("⚡ Difficulty Level", ["Easy","Medium","Hard"])
+
     if st.button("Generate Quiz"):
-        prompt = f"Generate {num_qs} MCQs from {subject}, topic {topic}. Difficulty: {level}. Return Python list with dicts: question, options, answer."
+        username = st.session_state.get("username","Guest")
+        
+        # Automatically get recommended difficulty
+        recommended_level = get_quiz_difficulty(username, subject, topic)
+
+        # Generate prompt using recommended level (no dropdown needed)
+        prompt = f"Generate {num_qs} MCQs from {subject}, topic {topic}. Difficulty: {recommended_level}. Return Python list with dicts: question, options, answer,explanation (one-line explanation for the correct answer)."
         questions = generate_questions(prompt)
         if questions:
             st.session_state.generated_questions = questions
@@ -290,10 +335,13 @@ def subject_topic_quiz():
             st.session_state.show_instructions = True
             st.session_state.current_question = 0
             st.session_state.selected_options = [None]*len(questions)
-            st.session_state.time_limit = {"Easy":3,"Medium":5,"Hard":8}[level]*60
-            st.session_state.level = level
+            st.session_state.time_limit = {"Easy":3,"Medium":5,"Hard":8}[recommended_level]*60
+            st.session_state.level = recommended_level
             st.session_state.num_questions = len(questions)
+            st.session_state.subject = subject
+            st.session_state.topic = topic
             st.rerun()
+
 
 # --- Dashboard ---
 def dashboard():
@@ -311,22 +359,15 @@ def dashboard():
     st.subheader("Welcome to the Quiz Dashboard")
     st.markdown("Select how you want to generate the quiz:")
 
-    # Quiz mode selection
     if "selected_mode" not in st.session_state:
         st.session_state.selected_mode = None
-    mode = st.radio(
-        "Choose Mode",
-        ["By Subject & Topic", "From Paragraph"],
-        index=None  # ensures nothing is pre-selected
-    )
+    mode = st.radio("Choose Mode", ["By Subject & Topic", "From Paragraph"], index=None)
     st.session_state.selected_mode = mode
 
-    # Proceed button to confirm the choice
     if st.button("➡️ Proceed"):
         st.session_state.mode_confirmed = True
         st.rerun()
 
-    # Show input fields only after proceed
     if st.session_state.get("mode_confirmed"):
         if st.session_state.selected_mode == "By Subject & Topic":
             subject_topic_quiz()

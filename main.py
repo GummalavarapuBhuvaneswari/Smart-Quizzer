@@ -1,10 +1,13 @@
+# main.py include all files
 import streamlit as st
 from pymongo import MongoClient
 import bcrypt
-from quiz_module import dashboard
-import os
 from dotenv import load_dotenv
-load_dotenv()
+import os
+from quiz_module import dashboard
+
+load_dotenv()  
+
 
 #from quiz_module import paragraph_quiz, subject_topic_quiz  # Import quiz functions
 from forgot_password import forgot_password_app  # Import forgot password app
@@ -20,6 +23,8 @@ else:
     client = MongoClient(mongo_uri)
     db = client["quizApp"]          # ✅ Select database
     users_collection = db["users"]  # ✅ Select collection
+
+
 
 
 # --- Helper Functions ---
@@ -52,6 +57,7 @@ def login_user(email: str, password: str):
 def user_dashboard(username: str):
     st.subheader(f"Welcome, {username} 🎉")
     dashboard()
+
 
 # --- Main App ---
 def main():

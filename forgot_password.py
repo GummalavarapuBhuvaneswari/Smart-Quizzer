@@ -18,8 +18,6 @@ else:
     db = client["quizApp"]          # ✅ Select database
     users_collection = db["users"]  # ✅ Select collection
 
-
-
 # --- Helper Functions ---
 def hash_password(password):
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
