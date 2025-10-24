@@ -14,12 +14,14 @@ Smart Quizzer is an innovative web application that leverages **Generative AI** 
 
 ## 🛠️ Technology Stack
 
-Category,Technology,Role in the Project
-Backend/Core,Python (Flask),"Main web framework for handling routing, session, and application context."
-AI Integration,Google Gemini API,Content processing and intelligent question generation.
-Database,SQLite3,"File-based storage for all persistent data (Users, Quizzes, Performance)."
-Frontend/Design,"HTML5, Jinja2, Tailwind CSS","Structure, templating, and utility-first responsive styling."
-Client-Side,JavaScript,"Quiz timers, star rating interactivity, and modal control."
+| Category | Technology | Role |
+| :--- | :--- | :--- |
+| **Backend/Core** | **Python (Flask)** | The web framework for routing, session management, and backend logic. |
+| **AI Integration** | **Google Gemini API** | Used by `gemini_engine.py` for content processing and question generation. |
+| **Database** | **SQLite3** | Lightweight, file-based database for storing users, quizzes, and performance logs. |
+| **Frontend** | **HTML5, Jinja2** | Templating for dynamic data injection into the user interface. |
+| **Styling** | **Tailwind CSS** | Utility-first framework for responsive, modern UI design. |
+| **Client-Side** | **JavaScript** | Handles the interactive star rating, quiz timers, and modal functionality. |
 
 ## ⚙️ Getting Started
 
@@ -67,19 +69,13 @@ The application should now be running at `http://127.0.0.1:5000/`.
 
 ## 📂 Project Structure (Key Files)
 
-SmartQuizzer/
-├── app.py                      <-- (Routing, Initialization, Database I/O)
-├── gemini_engine.py            <-- (AI Logic)
-├── simple_adaptive_engine.py   <-- (Adaptive Logic)
-├── quizzes.db                  <-- (Database file)
-├── templates/                  <-- (All HTML files)
-│   ├── Base.html
-│   ├── dashboard.html
-│   ├── create_quiz.html
-│   ├── single_question_quiz.html 
-│   ├── performance_analysis.html 
-│   └── (Authentication and other pages)
-└── uploads/                    <-- (Storage for user uploaded files)
+| File/Folder | Description |
+| :--- | :--- |
+| `app.py` | **Main App:** Contains all Flask routes, session management, and core application logic. |
+| `gemini_engine.py` | **AI Generator:** Handles the connection and prompting for the Gemini API to generate structured quiz data. |
+| `simple_adaptive_engine.py` | **Adaptive Logic:** Implements the custom algorithm for adjusting difficulty and calculating user skill level. |
+| `quizzes.db` | The main **SQLite database** file storing all persistent data. |
+| `templates/` | Contains all HTML templates rendered via Jinja2. |
 | `requirements.txt` | Lists all necessary Python dependencies. |
 
 ## 🤝 Contribution and Feedback
