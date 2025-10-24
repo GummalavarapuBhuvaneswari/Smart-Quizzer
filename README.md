@@ -1,7 +1,3 @@
-Here is the final, comprehensive `README.md` file, ready for you to copy and paste directly into your GitHub repository:
-
------
-
 # 🧠 Smart Quizzer: AI-Powered Adaptive Learning Platform
 
 ## 🎯 Project Overview
