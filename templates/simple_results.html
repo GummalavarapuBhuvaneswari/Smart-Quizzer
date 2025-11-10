@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold mb-6">Quiz Results</h2>
+    
+    <!-- Score Summary -->
+    <div class="bg-blue-50 p-6 rounded-lg mb-6 text-center">
+        <h3 class="text-xl font-semibold mb-2">Your Score</h3>
+        <div class="text-4xl font-bold text-blue-600 mb-2">
+            {{ "%.1f"|format(quiz.score) }}%
+        </div>
+        <p class="text-gray-600">
+            {% set correct_count = questions|selectattr('is_correct')|list|length %}
+            {{ correct_count }} out of {{ questions|length }} correct
+        </p>
+    </div>
+
+    <!-- Performance Message -->
+    <div class="mb-6 text-center">
+        {% if quiz.score >= 80 %}
+            <p class="text-green-600 text-lg font-semibold">🎉 Excellent! You've mastered this topic!</p>
+        {% elif quiz.score >= 60 %}
+            <p class="text-yellow-600 text-lg font-semibold">👍 Good job! You're making great progress!</p>
+        {% else %}
+            <p class="text-red-600 text-lg font-semibold">💪 Keep practicing! You'll get better with time!</p>
+        {% endif %}
+    </div>
+
+    <!-- Question Details -->
+    <h3 class="text-xl font-semibold mb-4">Question Details</h3>
+    <div class="space-y-6">
+        {% for question in questions %}
+        <div class="p-4 border rounded-lg {% if question.is_correct %}bg-green-50 border-green-200{% else %}bg-red-50 border-red-200{% endif %}">
+            <div class="flex justify-between items-start mb-3">
+                <h4 class="font-semibold text-lg">Question {{ loop.index }}</h4>
+                <span class="{% if question.is_correct %}text-green-600{% else %}text-red-600{% endif %} font-semibold">
+                    {% if question.is_correct %}✅ Correct{% else %}❌ Incorrect{% endif %}
+                </span>
+            </div>
+            
+            <p class="mb-3"><strong>Question:</strong> {{ question.question_text }}</p>
+            <p class="mb-2"><strong>Your Answer:</strong> {{ question.user_answer }}</p>
+            
+            {% if not question.is_correct %}
+            <p class="mb-2"><strong>Correct Answer:</strong> {{ question.correct_answer }}</p>
+            {% endif %}
+            
+            <div class="mt-3 p-3 bg-white rounded border">
+                <strong>Explanation:</strong> 
+                <span class="text-gray-600">
+                    {% if question.is_correct %}
+                    Your answer was correct and demonstrated good understanding of the topic.
+                    {% else %}
+                    Review this concept to improve your understanding for next time.
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="mt-8 text-center space-x-4">
+        <a href="/dashboard" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+            📊 Back to Dashboard
+        </a>
+        <a href="/create_quiz" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+            🚀 Create New Quiz
+        </a>
+    </div>
+</div>
+{% endblock %}
