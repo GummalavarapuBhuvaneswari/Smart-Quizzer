@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold mb-6">{{ quiz.title }}</h2>
+    
+    <div class="mb-6 p-4 bg-yellow-100 rounded-lg flex justify-between items-center">
+        <p class="text-yellow-800">⏱️ Time per Question is being tracked for analysis.</p>
+    </div>
+
+    <script>
+        const startTimes = {};
+
+        // Start the timer for a question when the block is visible/loaded
+        document.querySelectorAll('.question-block').forEach(block => {
+            const qId = block.dataset.questionId;
+            startTimes[qId] = Date.now();
+        });
+
+        // Function to calculate and update time taken before submission
+        function calculateAllTimes() {
+            document.querySelectorAll('.question-block').forEach(block => {
+                const qId = block.dataset.questionId;
+                const startTime = startTimes[qId];
+                if (startTime) {
+                    const timeTakenSeconds = Math.round((Date.now() - startTime) / 1000);
+                    // Update the hidden time field associated with the question
+                    const timeInput = document.getElementById(`time_${qId}`);
+                    if (timeInput) {
+                        timeInput.value = timeTakenSeconds;
+                    }
+                }
+            });
+        }
+        
+        // Listen for form submission and calculate times immediately before sending
+        const form = document.getElementById('quizForm');
+        if (form) {
+            form.addEventListener('submit', (event) => {
+                calculateAllTimes();
+                // Form submits normally after calculating times
+            });
+        }
+    </script>
+    <form method="POST" action="/submit_quiz/{{ quiz.id }}" id="quizForm">
+        {% for question in questions %}
+        <div class="mb-8 p-6 border-2 border-gray-200 rounded-lg bg-white question-block"
+             data-question-id="{{ question.id }}">
+
+            <input type="hidden" name="time_{{ question.id }}" id="time_{{ question.id }}" value="0">
+
+            <h3 class="text-lg font-semibold mb-4">
+                <span class="text-blue-600">Q{{ loop.index }} ({{ question.difficulty|capitalize }})</span>: {{ question.question_text }}
+            </h3>
+            
+            {% if question.question_type == 'mcq' %}
+                <div class="space-y-3">
+                    {% for option in question.options %}
+                    <label class="flex items-center p-3 border border-gray-300 rounded-lg hover:bg-blue-50 cursor-pointer">
+                        <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" 
+                               class="mr-3 h-5 w-5 text-blue-600" required>
+                        <span class="text-gray-700">{{ option }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                
+            {% elif question.question_type == 'true_false' %}
+                <div class="grid grid-cols-2 gap-4">
+                    {% for option in question.options %}
+                    <label class="flex items-center justify-center p-4 border border-gray-300 rounded-lg hover:bg-blue-50 cursor-pointer text-center">
+                        <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" 
+                               class="mr-2 h-5 w-5 text-blue-600" required>
+                        <span class="text-gray-700 font-medium">{{ option }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                
+            {% elif question.question_type == 'short_answer' %}
+                <div>
+                    <textarea name="answer_{{ question.id }}"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                              rows="4"
+                              placeholder="Type your answer here..."
+                              required></textarea>
+                </div>
+            {% endif %}
+
+            <div class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <h4 class="text-md font-semibold text-gray-700 flex items-center">
+                    <i class="fas fa-comment-dots text-blue-500 mr-2"></i>
+                    Share feedback or flag this question
+                </h4>
+                <div class="mt-4 grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-2">How did you feel about this question?</label>
+                        <select name="feedback_type_{{ question.id }}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                            <option value="">Select feedback</option>
+                            <option value="positive">Positive</option>
+                            <option value="negative">Negative</option>
+                            <option value="neutral">Neutral</option>
+                        </select>
+                    </div>
+                    <label class="flex items-center space-x-3 text-sm text-gray-600 bg-white border border-dashed border-gray-300 rounded-lg px-3 py-2">
+                        <input type="checkbox" name="flag_question_{{ question.id }}" value="1" class="h-4 w-4 text-red-500">
+                        <span>Flag this question for admin review</span>
+                    </label>
+                </div>
+                <textarea name="feedback_comment_{{ question.id }}" rows="3" class="mt-4 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" placeholder="Describe the issue or share suggestions (optional)"></textarea>
+                <p class="text-xs text-gray-500 mt-2">Feedback is sent to the admin dashboard instantly after you submit the quiz.</p>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="mt-8 text-center">
+            <button type="submit"
+                    class="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 text-lg font-semibold">
+                ✅ Submit Quiz
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

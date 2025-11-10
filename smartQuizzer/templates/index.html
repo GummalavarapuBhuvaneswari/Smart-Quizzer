@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Hero Section -->
+    <section class="text-center py-20">
+        <div class="animate-fade-in">
+            <h1 class="text-5xl md:text-7xl font-bold text-gray-800 mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Smart Quizzer
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed">
+                Transform any content into engaging quizzes with AI-powered adaptive learning. 
+                <span class="font-semibold text-purple-600">Learn smarter, not harder.</span>
+            </p>
+            
+            <!-- Animated Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 max-w-4xl mx-auto">
+                <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg card-hover border border-slate-200">
+                    <div class="text-3xl font-bold text-blue-600 mb-2">🤖</div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">AI-Generated Questions</h3>
+                    <p class="text-gray-600 text-sm">Dynamic questions from any educational content in seconds</p>
+                </div>
+                <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg card-hover border border-slate-200">
+                    <div class="text-3xl font-bold text-green-600 mb-2">⚡</div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Instant Feedback</h3>
+                    <p class="text-gray-600 text-sm">Real-time evaluation with detailed explanations</p>
+                </div>
+                <div class="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg card-hover border border-slate-200">
+                    <div class="text-3xl font-bold text-purple-600 mb-2">📈</div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Progress Tracking</h3>
+                    <p class="text-gray-600 text-sm">Personalized learning journey with adaptive difficulty</p>
+                </div>
+            </div>
+
+            {% if not session.user_id %}
+            <div class="space-x-4 space-y-4 sm:space-y-0">
+                <a href="/register" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-300 font-semibold text-lg shadow-lg card-hover inline-flex items-center space-x-2">
+                    <i class="fas fa-rocket"></i>
+                    <span>Start Learning Free</span>
+                </a>
+                <a href="/login" class="bg-white text-gray-700 px-8 py-4 rounded-xl hover:bg-gray-50 transition-all duration-300 font-semibold text-lg shadow-lg card-hover border border-slate-300 inline-flex items-center space-x-2">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Sign In</span>
+                </a>
+            </div>
+            {% else %}
+            <a href="/dashboard" class="bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 font-semibold text-lg shadow-lg card-hover inline-flex items-center space-x-2">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Go to Dashboard</span>
+            </a>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-16 bg-white/50 rounded-3xl shadow-sm mx-4">
+        <div class="max-w-6xl mx-auto px-4">
+            <h2 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-12">
+                Why Choose Smart Quizzer?
+            </h2>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-robot text-2xl text-blue-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">AI-Powered Generation</h3>
+                    <p class="text-gray-600">Generate quizzes from any text using advanced AI algorithms</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-brain text-2xl text-green-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Adaptive Learning</h3>
+                    <p class="text-gray-600">Difficulty adjusts based on your performance and progress</p>
+                </div>
+                <div class="text-center p-6">
+                    <div class="w-16 h-16 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-chart-bar text-2xl text-purple-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Progress Analytics</h3>
+                    <p class="text-gray-600">Track your learning journey with detailed insights</p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Quizzer - AI-Powered Learning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        .profile-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            overflow-y: auto; /* Allow scrolling for smaller screens */
+        }
+        .profile-content {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 800px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+        @keyframes slideIn {
+            from { 
+                transform: translateY(-50px) scale(0.95); 
+                opacity: 0; 
+            }
+            to { 
+                transform: translateY(0) scale(1); 
+                opacity: 1; 
+            }
+        }
+        .close-profile {
+            color: #94a3b8;
+            float: right;
+            font-size: 28px;
+            font-weight: 300;
+            cursor: pointer;
+            padding: 15px 20px;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        .close-profile:hover {
+            color: #64748b;
+            transform: scale(1.1);
+        }
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            margin: 0 auto;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+            border: 4px solid white;
+        }
+        .nav-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
+    <nav class="nav-gradient text-white shadow-2xl">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <a href="/" class="text-2xl font-bold flex items-center space-x-2">
+                    <div class="w-10 h-10 bg-white text-purple-600 rounded-xl flex items-center justify-center font-bold">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <span>SmartQuizzer</span>
+                </a>
+                <div class="flex items-center space-x-6">
+                    {% if session.user_id %}
+                        <span class="hidden lg:inline text-blue-100 font-medium">Welcome back, {{ session.username }}! 👋</span>
+                        <a href="{{ url_for('dashboard') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="{{ url_for('create_quiz') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-plus-circle"></i>
+                            <span>Create Quiz</span>
+                        </a>
+
+                        <div class="relative">
+                            <button onclick="openProfileModal()" class="flex items-center space-x-3 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl transition-all duration-300 font-medium group">
+                                <div class="w-10 h-10 bg-white text-purple-600 rounded-full flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
+                                    {{ session.username[0]|upper if session.user_id else 'U' }}
+                                </div>
+                                <span class="hidden md:inline">{{ session.username }}</span>
+                                <i class="fas fa-chevron-down text-xs transform group-hover:rotate-180 transition-transform"></i>
+                            </button>
+                        </div>
+
+                        <a href="{{ url_for('logout') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-red-500/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span class="hidden md:inline">Logout</span>
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('login') }}" class="glass-effect px-6 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium">
+                            Login
+                        </a>
+                        <a href="{{ url_for('register') }}" class="bg-white text-purple-600 px-6 py-2 rounded-xl hover:bg-blue-50 transition-all duration-300 font-medium shadow-lg">
+                            Get Started
+                        </a>
+                    {% endif %}
+
+                    {% if session.get('is_admin') %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-user-shield"></i>
+                            <span class="hidden md:inline">Admin</span>
+                        </a>
+                        <a href="{{ url_for('admin_logout') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-red-500/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-door-open"></i>
+                            <span class="hidden md:inline">Admin Logout</span>
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('admin_login') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-user-shield"></i>
+                            <span class="hidden md:inline">Admin</span>
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div id="profileModal" class="profile-modal">
+        <div class="profile-content">
+            <div class="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white p-8 relative">
+                <span class="close-profile absolute top-0 right-0" onclick="closeProfileModal()">&times;</span>
+                <div class="text-center">
+                    <div class="profile-avatar mb-6">
+                        {{ session.username[0]|upper if session.user_id else 'U' }}
+                    </div>
+                    <h2 class="text-3xl font-bold mb-2">{{ session.username if session.user_id else 'User' }}</h2>
+                    <p class="text-blue-100 text-lg opacity-90">{{ session.get('email', 'No email provided') }}</p>
+                    <div class="mt-4 inline-flex items-center bg-white/20 rounded-full px-4 py-2">
+                        <i class="fas fa-star text-yellow-300 mr-2"></i>
+                        <span class="font-semibold">{{ session.get('skill_level', 'Beginner') }} Level</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-8">
+                <div class="grid lg:grid-cols-2 gap-8">
+                    <div class="bg-gradient-to-br from-slate-50 to-blue-50 p-6 rounded-2xl shadow-lg border border-slate-200">
+                        <h3 class="text-xl font-bold mb-6 text-slate-800 flex items-center">
+                            <i class="fas fa-chart-line text-blue-500 mr-3"></i>
+                            Learning Statistics
+                        </h3>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                                <span class="text-slate-600 flex items-center">
+                                    <i class="fas fa-calendar-plus text-green-500 mr-2"></i>
+                                    Member Since
+                                </span>
+                                <span class="font-semibold text-slate-800">{{ session.get('join_date', 'Recent') }}</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                                <span class="text-slate-600 flex items-center">
+                                    <i class="fas fa-file-alt text-blue-500 mr-2"></i>
+                                    Quizzes Taken
+                                </span>
+                                <span class="font-semibold text-slate-800">{{ session.get('quizzes_taken', 0) }}</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                                <span class="text-slate-600 flex items-center">
+                                    <i class="fas fa-trophy text-yellow-500 mr-2"></i>
+                                    Average Score
+                                </span>
+                                <span class="font-semibold text-green-600">{{ session.get('avg_score', 0)|round(1) }}%</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-white rounded-xl shadow-sm">
+                                <span class="text-slate-600 flex items-center">
+                                    <i class="fas fa-graduation-cap text-purple-500 mr-2"></i>
+                                    Skill Level
+                                </span>
+                                <span class="font-semibold text-blue-600">{{ session.get('skill_level', 'Medium') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <a href="/profile" class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-4 px-6 rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg card-hover">
+                            <i class="fas fa-user-edit text-lg"></i>
+                            <span class="font-semibold text-lg">View Full Profile</span>
+                        </a>
+                        <a href="/dashboard" class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg card-hover">
+                            <i class="fas fa-tachometer-alt text-lg"></i>
+                            <span class="font-semibold text-lg">Go to Dashboard</span>
+                        </a>
+                        <a href="/create_quiz" class="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white py-4 px-6 rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg card-hover">
+                            <i class="fas fa-plus-circle text-lg"></i>
+                            <span class="font-semibold text-lg">Create New Quiz</span>
+                        </a>
+                        
+                        <a href="/feedback" class="w-full bg-gradient-to-r from-pink-500 to-red-500 text-white py-4 px-6 rounded-xl hover:from-pink-600 hover:to-red-600 transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg card-hover">
+                            <i class="fas fa-comment-dots text-lg"></i>
+                            <span class="font-semibold text-lg">Give Feedback</span>
+                        </a>
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="container mx-auto px-4 py-8">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-6 animate-fade-in">
+                        <div class="{% if category == 'success' %}bg-green-50 border-green-200 text-green-800
+                                   {% elif category == 'danger' %}bg-red-50 border-red-200 text-red-800
+                                   {% elif category == 'warning' %}bg-yellow-50 border-yellow-200 text-yellow-800
+                                   {% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %} 
+                                   border-2 rounded-2xl px-6 py-4 shadow-sm">
+                            <div class="flex items-center">
+                                <i class="fas {% if category == 'success' %}fa-check-circle
+                                            {% elif category == 'danger' %}fa-exclamation-circle
+                                            {% elif category == 'warning' %}fa-exclamation-triangle
+                                            {% else %}fa-info-circle{% endif %} 
+                                            mr-3 text-lg"></i>
+                                <span class="font-medium">{{ message }}</span>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        function openProfileModal() {
+            document.getElementById('profileModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('profileModal');
+            if (event.target === modal) {
+                closeProfileModal();
+            }
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeProfileModal();
+            }
+        });
+
+        // Add fade-in animation to elements
+        document.addEventListener('DOMContentLoaded', function() {
+            const elements = document.querySelectorAll('.animate-fade-in');
+            elements.forEach((element, index) => {
+                element.style.animationDelay = `${index * 0.1}s`;
+            });
+        });
+    </script>
+</body>
+</html>
