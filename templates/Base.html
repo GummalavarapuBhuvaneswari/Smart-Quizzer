@@ -111,15 +111,15 @@
                 <div class="flex items-center space-x-6">
                     {% if session.user_id %}
                         <span class="hidden lg:inline text-blue-100 font-medium">Welcome back, {{ session.username }}! 👋</span>
-                        <a href="/dashboard" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                        <a href="{{ url_for('dashboard') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
                             <i class="fas fa-tachometer-alt"></i>
                             <span>Dashboard</span>
                         </a>
-                        <a href="/create_quiz" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                        <a href="{{ url_for('create_quiz') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
                             <i class="fas fa-plus-circle"></i>
                             <span>Create Quiz</span>
                         </a>
-                        
+
                         <div class="relative">
                             <button onclick="openProfileModal()" class="flex items-center space-x-3 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-xl transition-all duration-300 font-medium group">
                                 <div class="w-10 h-10 bg-white text-purple-600 rounded-full flex items-center justify-center font-bold text-lg group-hover:scale-110 transition-transform">
@@ -129,17 +129,33 @@
                                 <i class="fas fa-chevron-down text-xs transform group-hover:rotate-180 transition-transform"></i>
                             </button>
                         </div>
-                        
-                        <a href="/logout" class="glass-effect px-4 py-2 rounded-xl hover:bg-red-500/20 transition-all duration-300 font-medium flex items-center space-x-2">
+
+                        <a href="{{ url_for('logout') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-red-500/20 transition-all duration-300 font-medium flex items-center space-x-2">
                             <i class="fas fa-sign-out-alt"></i>
                             <span class="hidden md:inline">Logout</span>
                         </a>
                     {% else %}
-                        <a href="/login" class="glass-effect px-6 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium">
+                        <a href="{{ url_for('login') }}" class="glass-effect px-6 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium">
                             Login
                         </a>
-                        <a href="/register" class="bg-white text-purple-600 px-6 py-2 rounded-xl hover:bg-blue-50 transition-all duration-300 font-medium shadow-lg">
+                        <a href="{{ url_for('register') }}" class="bg-white text-purple-600 px-6 py-2 rounded-xl hover:bg-blue-50 transition-all duration-300 font-medium shadow-lg">
                             Get Started
+                        </a>
+                    {% endif %}
+
+                    {% if session.get('is_admin') %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-user-shield"></i>
+                            <span class="hidden md:inline">Admin</span>
+                        </a>
+                        <a href="{{ url_for('admin_logout') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-red-500/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-door-open"></i>
+                            <span class="hidden md:inline">Admin Logout</span>
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('admin_login') }}" class="glass-effect px-4 py-2 rounded-xl hover:bg-white/20 transition-all duration-300 font-medium flex items-center space-x-2">
+                            <i class="fas fa-user-shield"></i>
+                            <span class="hidden md:inline">Admin</span>
                         </a>
                     {% endif %}
                 </div>
