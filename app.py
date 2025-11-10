@@ -98,6 +98,26 @@ def init_db():
             average_response_time REAL DEFAULT 0.0,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS admins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS question_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            quiz_id INTEGER,
+            question_id TEXT,
+            user_id INTEGER,
+            feedback_type TEXT,
+            comment TEXT,
+            flagged INTEGER DEFAULT 0,
+            resolved INTEGER DEFAULT 0,
+            question_text TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (quiz_id) REFERENCES quizzes (id),
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        );
     ''')
     
     def add_column_if_not_exists(table, column, definition):
@@ -114,12 +134,29 @@ def init_db():
     add_column_if_not_exists('quizzes', 'quiz_type', 'TEXT DEFAULT "adaptive"') # Ensure this is added
     
     conn.commit()
-    conn.close() 
+
+    # Ensure there is at least one admin account available for dashboard access
+    default_admin_username = 'admin'
+    default_admin_password = 'Admin@123'
+
+    existing_admin = c.execute('SELECT id FROM admins WHERE username = ?', (default_admin_username,)).fetchone()
+    if not existing_admin:
+        c.execute(
+            'INSERT INTO admins (username, password) VALUES (?, ?)',
+            (default_admin_username, generate_password_hash(default_admin_password))
+        )
+        conn.commit()
+
+    conn.close()
 
 init_db()
 
 def is_logged_in():
     return 'user_id' in session
+
+
+def is_admin_logged_in():
+    return session.get('is_admin')
 
 def get_current_user_data(user_id):
     with get_db_connection() as conn:
@@ -137,6 +174,181 @@ def index():
     if is_logged_in():
         return redirect('/dashboard')
     return render_template('index.html')
+
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+
+        with get_db_connection() as conn:
+            admin = conn.execute('SELECT * FROM admins WHERE username = ?', (username,)).fetchone()
+
+        if admin and check_password_hash(admin['password'], password):
+            session.clear()  # ensure any user session data is cleared before promoting admin access
+            session['is_admin'] = True
+            session['admin_id'] = admin['id']
+            session['admin_username'] = admin['username']
+            flash('Admin login successful.', 'success')
+            return redirect(url_for('admin_dashboard'))
+
+        flash('Invalid admin credentials.', 'danger')
+
+    return render_template('admin_login.html')
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.clear()
+    flash('Admin logged out successfully.', 'info')
+    return redirect(url_for('admin_login'))
+
+
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    if not is_admin_logged_in():
+        return redirect(url_for('admin_login'))
+
+    with get_db_connection() as conn:
+        total_users = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+        active_users = conn.execute(
+            "SELECT COUNT(DISTINCT user_id) FROM quizzes WHERE created_at >= datetime('now', '-30 day')"
+        ).fetchone()[0]
+        total_quizzes = conn.execute('SELECT COUNT(*) FROM quizzes').fetchone()[0]
+        completed_quizzes = conn.execute(
+            "SELECT COUNT(*) FROM quizzes WHERE status = 'completed'"
+        ).fetchone()[0]
+        total_feedback = conn.execute('SELECT COUNT(*) FROM question_feedback').fetchone()[0]
+        flagged_open = conn.execute(
+            'SELECT COUNT(*) FROM question_feedback WHERE flagged = 1 AND resolved = 0'
+        ).fetchone()[0]
+
+        feedback_breakdown = conn.execute(
+            'SELECT feedback_type, COUNT(*) as count FROM question_feedback GROUP BY feedback_type'
+        ).fetchall()
+
+        user_rows = conn.execute(
+            'SELECT id, username, email, skill_level, created_at FROM users ORDER BY created_at DESC'
+        ).fetchall()
+
+        content_rows = conn.execute(
+            'SELECT id, title, topic, status, created_at FROM quizzes ORDER BY created_at DESC LIMIT 12'
+        ).fetchall()
+
+        flagged_rows = conn.execute(
+            '''
+            SELECT qf.*, u.username AS reported_by, q.title AS quiz_title
+            FROM question_feedback qf
+            LEFT JOIN users u ON qf.user_id = u.id
+            LEFT JOIN quizzes q ON qf.quiz_id = q.id
+            WHERE qf.flagged = 1 AND qf.resolved = 0
+            ORDER BY qf.created_at DESC
+            '''
+        ).fetchall()
+
+        recent_feedback_rows = conn.execute(
+            '''
+            SELECT qf.*, u.username AS reported_by, q.title AS quiz_title
+            FROM question_feedback qf
+            LEFT JOIN users u ON qf.user_id = u.id
+            LEFT JOIN quizzes q ON qf.quiz_id = q.id
+            ORDER BY qf.created_at DESC
+            LIMIT 15
+            '''
+        ).fetchall()
+
+        leaderboard_rows = conn.execute(
+            '''
+            SELECT u.id,
+                   u.username,
+                   COUNT(q.id) AS completed_quizzes,
+                   AVG(q.score) AS avg_score,
+                   MAX(q.score) AS best_score
+            FROM users u
+            JOIN quizzes q ON q.user_id = u.id AND q.status = 'completed'
+            GROUP BY u.id
+            ORDER BY avg_score DESC, completed_quizzes DESC, best_score DESC
+            LIMIT 10
+            '''
+        ).fetchall()
+
+    feedback_counts = {'positive': 0, 'negative': 0, 'neutral': 0}
+    for row in feedback_breakdown:
+        f_type = (row['feedback_type'] or '').lower()
+        if f_type in feedback_counts:
+            feedback_counts[f_type] += row['count']
+
+    sentiment_total = feedback_counts['positive'] + feedback_counts['negative']
+    positive_pct = (feedback_counts['positive'] / sentiment_total * 100) if sentiment_total else 0
+    negative_pct = (feedback_counts['negative'] / sentiment_total * 100) if sentiment_total else 0
+
+    stats = {
+        'total_users': total_users,
+        'active_users': active_users,
+        'total_quizzes': total_quizzes,
+        'completed_quizzes': completed_quizzes,
+        'total_feedback': total_feedback,
+        'flagged_open': flagged_open,
+        'positive_pct': round(positive_pct, 1),
+        'negative_pct': round(negative_pct, 1),
+        'neutral_count': feedback_counts['neutral']
+    }
+
+    users = [dict(row) for row in user_rows]
+    content_items = [dict(row) for row in content_rows]
+    flagged_items = [dict(row) for row in flagged_rows]
+    recent_feedback = [dict(row) for row in recent_feedback_rows]
+    leaderboard = [
+        {
+            'user_id': row['id'],
+            'username': row['username'],
+            'completed_quizzes': row['completed_quizzes'],
+            'avg_score': round(row['avg_score'], 1) if row['avg_score'] is not None else 0,
+            'best_score': round(row['best_score'], 1) if row['best_score'] is not None else 0,
+        }
+        for row in leaderboard_rows
+    ]
+
+    return render_template(
+        'admin_dashboard.html',
+        stats=stats,
+        users=users,
+        content_items=content_items,
+        flagged_items=flagged_items,
+        recent_feedback=recent_feedback,
+        feedback_counts=feedback_counts,
+        leaderboard=leaderboard
+    )
+
+
+@app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+def admin_delete_user(user_id):
+    if not is_admin_logged_in():
+        return redirect(url_for('admin_login'))
+
+    with get_db_connection(dict_cursor=False) as conn:
+        conn.execute('DELETE FROM question_feedback WHERE user_id = ?', (user_id,))
+        conn.execute('DELETE FROM performances WHERE user_id = ?', (user_id,))
+        conn.execute('DELETE FROM quizzes WHERE user_id = ?', (user_id,))
+        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        conn.commit()
+
+    flash('User removed successfully.', 'info')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/feedback/<int:feedback_id>/resolve', methods=['POST'])
+def admin_resolve_feedback(feedback_id):
+    if not is_admin_logged_in():
+        return redirect(url_for('admin_login'))
+
+    with get_db_connection(dict_cursor=False) as conn:
+        conn.execute('UPDATE question_feedback SET resolved = 1 WHERE id = ?', (feedback_id,))
+        conn.commit()
+
+    flash('Feedback marked as resolved.', 'success')
+    return redirect(url_for('admin_dashboard'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -166,6 +378,7 @@ def register():
             conn.commit()
         
         # --- IMPORTANT: Populate Session with ALL required profile data ---
+        session.clear()  # reset any prior session state (including admin logins) before signing in new user
         session['user_id'] = user_id
         session['username'] = username
         session['email'] = email
@@ -197,10 +410,11 @@ def login():
         
         if user and check_password_hash(user['password'], password):
             # --- IMPORTANT: Populate Session with ALL required profile data ---
+            session.clear()  # drop any previous admin or user state to avoid dual logins
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['email'] = user['email']
-            session['skill_level'] = user['skill_level'] 
+            session['skill_level'] = user['skill_level']
             session['join_date'] = user['created_at'][:10] # Assuming format like 'YYYY-MM-DD HH:MM:SS'
             
             # Calculate and store dynamic stats
@@ -585,6 +799,33 @@ def submit_answer(quiz_id):
     correct_normalized_list = [a.lower().strip() for a in current_question['correct_answer'].split(',') if a.strip()]
     is_correct = user_normalized in correct_normalized_list
     
+    # Capture optional user feedback on the question
+    feedback_type = request.form.get('feedback_type', '').strip().lower()
+    feedback_comment = request.form.get('feedback_comment', '').strip()
+    flag_question = 1 if request.form.get('flag_question') else 0
+
+    if feedback_type not in {'positive', 'negative', 'neutral'}:
+        feedback_type = None
+
+    if feedback_type or feedback_comment or flag_question:
+        with get_db_connection(dict_cursor=False) as feedback_conn:
+            feedback_conn.execute(
+                '''
+                INSERT INTO question_feedback (quiz_id, question_id, user_id, feedback_type, comment, flagged, question_text)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''',
+                (
+                    quiz_id,
+                    str(question_id),
+                    session['user_id'],
+                    feedback_type,
+                    feedback_comment,
+                    flag_question,
+                    current_question.get('question_text', '')
+                )
+            )
+            feedback_conn.commit()
+
     # 2. Update session score and answered questions log
     if is_correct:
         session['score'] = session.get('score', 0) + 1
@@ -792,6 +1033,7 @@ def submit_quiz(quiz_id):
     total_questions = len(questions)
     correct_count = 0
     answered_log = []
+    feedback_entries = []
     
     # Create a map of question IDs to their details for easy access
     question_map = {q['id']: q for q in questions}
@@ -817,14 +1059,52 @@ def submit_quiz(quiz_id):
         # Prepare log for performance tracking
         answered_log.append({
             'q_id': q_id,
-            'user_answer': user_answer, 
+            'user_answer': user_answer,
             'difficulty': question['difficulty'],
             'is_correct': is_correct,
             'response_time': time_taken
         })
+
+        feedback_type = request.form.get(f'feedback_type_{q_id}', '').strip().lower()
+        feedback_comment = request.form.get(f'feedback_comment_{q_id}', '').strip()
+        flag_question = 1 if request.form.get(f'flag_question_{q_id}') else 0
+
+        if feedback_type not in {'positive', 'negative', 'neutral'}:
+            feedback_type = None
+
+        if feedback_type or feedback_comment or flag_question:
+            feedback_entries.append({
+                'quiz_id': quiz_id,
+                'question_id': str(q_id),
+                'feedback_type': feedback_type,
+                'feedback_comment': feedback_comment,
+                'flagged': flag_question,
+                'question_text': question.get('question_text', '')
+            })
     
     final_score = (correct_count / total_questions) * 100 if total_questions > 0 else 0
     
+    # Persist collected feedback before updating analytics
+    if feedback_entries:
+        with get_db_connection(dict_cursor=False) as feedback_conn:
+            for entry in feedback_entries:
+                feedback_conn.execute(
+                    '''
+                    INSERT INTO question_feedback (quiz_id, question_id, user_id, feedback_type, comment, flagged, question_text)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''',
+                    (
+                        entry['quiz_id'],
+                        entry['question_id'],
+                        user_id,
+                        entry['feedback_type'],
+                        entry['feedback_comment'],
+                        entry['flagged'],
+                        entry['question_text']
+                    )
+                )
+            feedback_conn.commit()
+
     # 2. Update Performance Table and User Skill Level
     for log in answered_log:
         q_detail = question_map.get(log['q_id'], {})
