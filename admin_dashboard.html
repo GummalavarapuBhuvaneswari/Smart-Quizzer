@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Command Center | Smart Quizzer</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+    <style>
+        :root {
+            /* --- NEW NEON PALETTE --- */
+            --primary: #6366f1;       /* Indigo */
+            --success: #06b6d4;       /* Neon Cyan (Replaces Green) */
+            --warning: #f59e0b;       /* Amber */
+            --danger: #f43f5e;        /* Vibrant Rose (Replaces Red) */
+            
+            --dark-bg: #0f172a;       /* Deep Blue/Black */
+            --glass-bg: rgba(30, 41, 59, 0.7); 
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --sidebar-width: 280px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--dark-bg);
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, h5, h6 { 
+            font-family: 'Outfit', sans-serif; 
+            color: #ffffff !important;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- UTILS --- */
+        .text-muted { color: #94a3b8 !important; }
+        .text-cyan { color: var(--success) !important; }
+        .text-rose { color: var(--danger) !important; }
+        
+        /* --- BACKGROUND FX --- */
+        .background-fx {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0f172a 100%);
+        }
+        .orb {
+            position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.3;
+            animation: float 15s infinite ease-in-out alternate;
+        }
+        .orb-1 { top: -10%; left: -10%; width: 60vw; height: 60vw; background: #4f46e5; }
+        .orb-2 { bottom: -10%; right: -10%; width: 50vw; height: 50vw; background: #db2777; animation-delay: -5s; }
+
+        @keyframes float { 0% { transform: translate(0,0); } 100% { transform: translate(30px, 30px); } }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: var(--sidebar-width); height: 100vh; position: fixed; top: 0; left: 0;
+            background: rgba(15, 23, 42, 0.95); 
+            border-right: 1px solid var(--glass-border);
+            padding: 1.5rem; display: flex; flex-direction: column; z-index: 1000;
+        }
+        .brand-logo { font-size: 1.4rem; font-weight: 800; color: white; text-decoration: none; display: flex; align-items: center; gap: 12px; margin-bottom: 2.5rem; }
+        .brand-logo i { color: var(--primary); }
+        
+        .nav-link-custom {
+            display: flex; align-items: center; gap: 12px; padding: 0.85rem 1rem;
+            color: #cbd5e1; text-decoration: none; border-radius: 12px;
+            font-weight: 500; transition: all 0.2s; cursor: pointer; border: 1px solid transparent;
+        }
+        .nav-link-custom:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+        .nav-link-custom.active {
+            background: rgba(99, 102, 241, 0.2); color: white;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main-content { margin-left: var(--sidebar-width); padding: 2rem; }
+
+        /* --- GLASS CARDS --- */
+        .glass-card {
+            background: var(--glass-bg); backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            padding: 1.5rem; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            transition: transform 0.2s; position: relative; overflow: hidden;
+            color: white;
+        }
+        .glass-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.3); }
+
+        .icon-box {
+            width: 48px; height: 48px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.25rem; margin-bottom: 1rem;
+            background: rgba(255,255,255,0.1);
+        }
+        .icon-primary { color: var(--primary); border: 1px solid rgba(129, 140, 248, 0.5); }
+        .icon-success { color: var(--success); border: 1px solid rgba(6, 182, 212, 0.5); } /* Cyan Border */
+        .icon-warning { color: var(--warning); border: 1px solid rgba(251, 191, 36, 0.5); }
+        .icon-danger  { color: var(--danger);  border: 1px solid rgba(244, 63, 94, 0.5); } /* Rose Border */
+
+        /* --- TABLES --- */
+        .glass-table-container { background: var(--glass-bg); border-radius: 20px; border: 1px solid var(--glass-border); overflow: hidden; }
+        .modern-table th {
+            background: rgba(0,0,0,0.3); color: #cbd5e1; font-size: 0.75rem; text-transform: uppercase;
+            padding: 1rem 1.5rem; border-bottom: 1px solid var(--glass-border);
+        }
+        .modern-table td {
+            padding: 1rem 1.5rem; vertical-align: middle; border-bottom: 1px solid var(--glass-border);
+            color: #ffffff; font-size: 0.95rem;
+        }
+        .modern-table tbody tr:hover { background: rgba(255,255,255,0.08); }
+        .avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5, #818cf8);
+            color: white; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.8rem; box-shadow: 0 2px 10px rgba(79,70,229,0.3);
+        }
+
+        /* --- BADGES --- */
+        .badge-glass {
+            padding: 5px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;
+        }
+        .badge-success { color: #67e8f9; background: rgba(6, 182, 212, 0.2); border-color: rgba(6, 182, 212, 0.3); }
+        .badge-danger  { color: #fda4af; background: rgba(244, 63, 94, 0.2); border-color: rgba(244, 63, 94, 0.3); }
+        
+        /* --- INPUTS & MODALS --- */
+        .search-input {
+            background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: white !important;
+            padding: 0.6rem 1.2rem; border-radius: 50px; width: 300px;
+        }
+        .search-input:focus { background: rgba(255,255,255,0.2); outline: none; border-color: var(--primary); }
+        .modal-content { background: #1e293b; border: 1px solid var(--glass-border); color: white; }
+        .modal-header, .modal-footer { border-color: var(--glass-border); }
+        .btn-close { filter: invert(1); }
+        
+        .view-section { display: none; animation: fadeIn 0.4s ease; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="background-fx"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+
+    <aside class="sidebar">
+        <a href="#" class="brand-logo"><i class="fas fa-bolt"></i> SmartQuizzer</a>
+        <nav class="nav flex-column flex-grow-1">
+            <div class="nav-item"><a onclick="switchTab('dashboard', this)" class="nav-link-custom active"><i class="fas fa-chart-pie"></i> Dashboard</a></div>
+            <div class="nav-item"><a onclick="switchTab('users', this)" class="nav-link-custom"><i class="fas fa-users"></i> Users</a></div>
+            <div class="nav-item"><a onclick="switchTab('quizzes', this)" class="nav-link-custom"><i class="fas fa-layer-group"></i> Quiz Library</a></div>
+            <div class="nav-item">
+                <a onclick="switchTab('reports', this)" class="nav-link-custom d-flex justify-content-between">
+                    <span><i class="fas fa-shield-alt"></i> Moderation</span>
+                    {% if stats.flagged_open > 0 %}<span class="badge bg-danger rounded-pill">{{ stats.flagged_open }}</span>{% endif %}
+                </a>
+            </div>
+        </nav>
+        <div class="pt-4 border-top border-secondary border-opacity-25 mt-auto d-flex align-items-center gap-3">
+            <div class="avatar">{{ session.get('admin_username', 'A')[:1] }}</div>
+            <div class="flex-grow-1" style="line-height: 1.2;"><div class="fw-bold text-white">{{ session.get('admin_username', 'Admin') }}</div><small class="text-muted">Super Admin</small></div>
+            <a href="{{ url_for('admin_logout') }}" class="text-muted hover-white"><i class="fas fa-sign-out-alt"></i></a>
+        </div>
+    </aside>
+
+    <div class="main-content">
+        
+        <div class="d-flex justify-content-between align-items-center mb-5">
+            <div><h2 class="fw-bold mb-1">Command Center</h2><p class="text-muted small mb-0">System overview & controls.</p></div>
+            <div class="d-flex gap-3">
+                <input type="text" class="search-input" placeholder="Search users, quizzes..." id="globalSearch">
+                <button class="btn btn-primary fw-bold px-4 rounded-pill shadow-lg" onclick="location.reload()"><i class="fas fa-sync-alt me-2"></i> Refresh</button>
+            </div>
+        </div>
+
+        <div id="view-dashboard" class="view-section active">
+            <div class="row g-4 mb-5">
+                <div class="col-xl-3 col-md-6"><div class="glass-card"><div class="d-flex justify-content-between"><div><div class="text-muted small fw-bold">TOTAL USERS</div><h2 class="fw-bold mb-0 text-white">{{ stats.total_users }}</h2></div><div class="icon-box icon-primary"><i class="fas fa-users"></i></div></div></div></div>
+                <div class="col-xl-3 col-md-6"><div class="glass-card"><div class="d-flex justify-content-between"><div><div class="text-muted small fw-bold">QUIZZES</div><h2 class="fw-bold mb-0 text-white">{{ stats.completed_quizzes }}</h2></div><div class="icon-box icon-success"><i class="fas fa-check-circle"></i></div></div></div></div>
+                <div class="col-xl-3 col-md-6"><div class="glass-card"><div class="d-flex justify-content-between"><div><div class="text-muted small fw-bold">FLAGS</div><h2 class="fw-bold mb-0 text-white">{{ stats.flagged_open }}</h2></div><div class="icon-box icon-danger"><i class="fas fa-flag"></i></div></div></div></div>
+                <div class="col-xl-3 col-md-6"><div class="glass-card"><div class="d-flex justify-content-between"><div><div class="text-muted small fw-bold">SATISFACTION</div><h2 class="fw-bold mb-0 text-white">{{ stats.positive_pct }}%</h2></div><div class="icon-box icon-warning"><i class="fas fa-smile"></i></div></div></div></div>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    <div class="glass-table-container h-100">
+                        <div class="p-4 border-bottom border-secondary border-opacity-25"><h5 class="fw-bold mb-0 text-white">Recent Activity</h5></div>
+                        <table class="modern-table w-100"><thead><tr><th>User</th><th>Action</th><th>Time</th><th>Status</th></tr></thead><tbody>{% for user in users[:5] %}<tr><td class="fw-bold text-white">{{ user.username }}</td><td class="text-muted">Joined Platform</td><td class="text-muted small">{{ user.created_at[:10] }}</td><td><span class="badge badge-success">Active</span></td></tr>{% endfor %}</tbody></table>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="glass-card h-100">
+                        <h5 class="fw-bold mb-4 text-white">Feedback Sentiment</h5>
+                        <div style="position:relative; height: 220px;">
+                            <canvas id="sentimentChart"></canvas>
+                            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;">
+                                <h2 class="fw-bold mb-0 text-white">{{ stats.total_feedback }}</h2><small class="text-muted">TOTAL</small>
+                            </div>
+                        </div>
+                        <div class="mt-4 d-flex justify-content-center gap-4">
+                            <div class="d-flex align-items-center gap-2"><span style="width:10px;height:10px;background:#06b6d4;border-radius:50%;"></span><span class="text-muted small">Positive</span></div>
+                            <div class="d-flex align-items-center gap-2"><span style="width:10px;height:10px;background:#f43f5e;border-radius:50%;"></span><span class="text-muted small">Negative</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-users" class="view-section">
+            <div class="glass-table-container">
+                <div class="p-4 border-bottom border-secondary border-opacity-25 d-flex justify-content-between"><h5 class="fw-bold mb-0 text-white">User Directory</h5><input type="text" id="userSearch" class="search-input" placeholder="Filter name..."></div>
+                <table class="modern-table w-100" id="usersTable"><thead><tr><th>User</th><th>Email</th><th>Skill</th><th>Joined</th><th class="text-end">Action</th></tr></thead><tbody>{% for user in users %}<tr><td class="fw-bold text-white"><div class="d-flex align-items-center gap-3"><div class="avatar" style="background:rgba(255,255,255,0.1);">{{ user.username[:1] }}</div> {{ user.username }}</div></td><td class="text-muted">{{ user.email }}</td><td><span class="badge badge-glass">{{ user.skill_level }}</span></td><td class="text-muted small">{{ user.created_at[:10] }}</td><td class="text-end"><button class="btn btn-sm btn-outline-light border-0" onclick="showUserDetails({{ user.id }})"><i class="fas fa-eye"></i></button><button class="btn btn-sm btn-outline-danger border-0" onclick="deleteUser({{ user.id }}, '{{ user.username }}')"><i class="fas fa-trash"></i></button></td></tr>{% endfor %}</tbody></table>
+            </div>
+        </div>
+        
+        <div id="view-quizzes" class="view-section"><div class="glass-table-container"><div class="p-4 border-bottom border-secondary border-opacity-25"><h5 class="fw-bold mb-0 text-white">Quiz Library</h5></div><table class="modern-table w-100"><thead><tr><th>Title</th><th>Topic</th><th>Status</th><th>Date</th></tr></thead><tbody>{% for item in content_items %}<tr><td class="fw-bold text-white">{{ item.title }}</td><td><span class="badge badge-glass text-info border-info">{{ item.topic }}</span></td><td>{{ item.status|capitalize }}</td><td class="text-muted">{{ item.created_at[:10] }}</td></tr>{% endfor %}</tbody></table></div></div>
+        <div id="view-reports" class="view-section"><h4 class="fw-bold mb-4 text-white">Flagged Content</h4>{% for flag in flagged_items %}<div class="glass-card mb-3" style="border-left:4px solid var(--danger);"><div class="d-flex justify-content-between align-items-center mb-2"><span class="badge badge-danger">Pending Review</span><small class="text-muted">Reported by <strong>{{ flag.reported_by }}</strong></small></div><p class="fw-bold text-white mb-1">"{{ flag.question_text }}"</p><p class="text-danger small mb-3">Reason: {{ flag.comment }}</p><form method="POST" action="{{ url_for('admin_resolve_feedback', feedback_id=flag.id) }}"><button class="btn btn-sm btn-success px-4 fw-bold rounded-pill">Resolve</button></form></div>{% else %}<div class="text-center py-5 text-muted"><i class="fas fa-shield-check fa-3x mb-3" style="color:var(--success)"></i><h5>System Secure</h5><p>No pending reports found.</p></div>{% endfor %}</div>
+    </div>
+
+    <div class="modal fade" id="userDetailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title fw-bold text-white">User Dossier</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body p-0">
+                    <div class="row g-0 h-100">
+                        <div class="col-lg-4 border-end border-secondary border-opacity-25 bg-black bg-opacity-25 p-4">
+                            <div class="text-center mb-4"><div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold mx-auto shadow-lg mb-3" style="width:90px;height:90px;font-size:2.5rem;" id="modal-avatar">U</div><h3 class="fw-bold text-white mb-0" id="modal-username">Username</h3><span class="badge badge-success mt-2">Active Student</span></div>
+                            <hr class="border-secondary opacity-25 my-4">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3">Contact</h6>
+                            <div class="mb-3"><span class="d-block text-muted text-xs fw-bold uppercase">EMAIL</span><span class="text-white" id="modal-email">-</span></div>
+                            <div class="mb-3"><span class="d-block text-muted text-xs fw-bold uppercase">PHONE</span><span class="text-info" id="modal-phone">Not provided</span></div>
+                            <hr class="border-secondary opacity-25 my-4">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3">Account</h6>
+                            <div class="d-flex justify-content-between mb-2"><span class="text-muted">ID</span><span class="text-white font-monospace" id="modal-id">#0</span></div>
+                            <div class="d-flex justify-content-between"><span class="text-muted">Joined</span><span class="text-white" id="modal-joined">-</span></div>
+                        </div>
+                        <div class="col-lg-8 p-4">
+                            <h5 class="text-white mb-4 fw-bold">Performance</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-4"><div class="p-3 bg-dark rounded border border-secondary border-opacity-25 text-center"><small class="text-muted d-block fw-bold">QUIZZES</small><span class="h2 fw-bold text-white mb-0" id="modal-attempts">0</span></div></div>
+                                <div class="col-4"><div class="p-3 bg-dark rounded border border-secondary border-opacity-25 text-center"><small class="text-muted d-block fw-bold">AVG SCORE</small><span class="h2 fw-bold text-cyan mb-0" id="modal-avg">0%</span></div></div>
+                                <div class="col-4"><div class="p-3 bg-dark rounded border border-secondary border-opacity-25 text-center"><small class="text-muted d-block fw-bold">BEST</small><span class="h2 fw-bold text-success mb-0" id="modal-best">0%</span></div></div>
+                            </div>
+                            <h5 class="text-white mb-3 fw-bold">History</h5>
+                            <div class="glass-table-container" style="max-height:300px; overflow-y:auto;">
+                                <table class="modern-table w-100 table-sm"><thead><tr><th>Date</th><th>Topic</th><th>Level</th><th class="text-end">Score</th></tr></thead><tbody id="modal-history"></tbody></table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Chart Config (Updated Colors)
+        const ctx = document.getElementById('sentimentChart');
+        if(ctx){ new Chart(ctx, {type:'doughnut', data:{labels:['Pos','Neg'], datasets:[{data:[{{stats.positive_pct}},{{stats.negative_pct}}], backgroundColor:['#06b6d4','#f43f5e'], borderWidth:0}]}, options:{cutout:'75%', plugins:{legend:{display:false}}}}); }
+
+        function switchTab(viewId, link) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            document.querySelectorAll('.nav-link-custom').forEach(el => el.classList.remove('active'));
+            link.classList.add('active');
+        }
+
+        document.getElementById('userSearch').addEventListener('keyup', function() {
+            let val = this.value.toLowerCase();
+            document.querySelectorAll('#usersTable tbody tr').forEach(r => r.style.display = r.innerText.toLowerCase().includes(val) ? '' : 'none');
+        });
+
+        function showUserDetails(id) {
+            const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+            modal.show();
+            fetch(`/admin/user/${id}`).then(r=>r.json()).then(d=>{
+                if(d.success) {
+                    const u = d.user; const s = d.stats;
+                    document.getElementById('modal-username').innerText = u.username;
+                    document.getElementById('modal-avatar').innerText = u.username[0].toUpperCase();
+                    document.getElementById('modal-email').innerText = u.email;
+                    document.getElementById('modal-phone').innerText = u.phone || 'Not provided';
+                    document.getElementById('modal-id').innerText = '#' + u.id;
+                    document.getElementById('modal-joined').innerText = u.created_at.substring(0,10);
+                    
+                    document.getElementById('modal-attempts').innerText = s.total_attempts;
+                    document.getElementById('modal-avg').innerText = (s.avg_score||0).toFixed(0)+'%';
+                    document.getElementById('modal-best').innerText = (s.best_score||0).toFixed(0)+'%';
+
+                    const tb = document.getElementById('modal-history');
+                    tb.innerHTML = '';
+                    if(d.quizzes.length > 0) {
+                        d.quizzes.forEach(q => {
+                            let color = q.score >= 70 ? 'text-success' : 'text-warning';
+                            tb.innerHTML += `<tr><td class="text-muted small">${q.created_at.substring(0,10)}</td><td class="fw-bold text-white">${q.title}</td><td><span class="badge badge-glass text-muted border-secondary small">${q.difficulty || 'Medium'}</span></td><td class="text-end fw-bold ${color}">${q.score.toFixed(0)}%</td></tr>`;
+                        });
+                    } else { tb.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-muted">No history.</td></tr>'; }
+                }
+            });
+        }
+
+        function deleteUser(id, name) { if(confirm(`Delete ${name}?`)) fetch(`/admin/delete_user/${id}`, {method:'POST'}).then(()=>location.reload()); }
+    </script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Quiz (Q{{ current_index + 1 }} / {{ quiz_length }}) - Smart Quizzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include 'navbar.html' %} 
+    <div class="container mt-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message | safe }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% set question = questions[0] %}
+        
+        <div class="card shadow-lg">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Question {{ current_index + 1 }} of {{ quiz_length }} ({{ quiz.topic }})</h4>
+                <span class="badge bg-light text-info fs-6">{{ question.difficulty | capitalize }}</span>
+            </div>
+            <div class="card-body">
+                
+                <h5 class="card-title mb-4">{{ question.question_text }}</h5>
+
+                <div id="question-form-section" style="{% if show_evaluation %}display:none;{% endif %}">
+                    <form id="quiz-form" method="POST" action="{{ url_for('submit_answer', quiz_id=quiz.id) }}">
+                        <input type="hidden" name="question_id" value="{{ question.id }}">
+                        <input type="hidden" id="time_taken" name="time_taken" value="1"> 
+                        
+                        <div class="options-container mb-4">
+                            {% if question.question_type == 'mcq' or question.question_type == 'true_false' %}
+                                {% for option in question.options %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="answer" value="{{ option }}" id="option-{{ loop.index }}" required>
+                                        <label class="form-check-label" for="option-{{ loop.index }}">{{ option }}</label>
+                                    </div>
+                                {% endfor %}
+                                <p class="text-muted mt-2 small">Type: Multiple Choice</p>
+
+                            {% elif question.question_type == 'checkbox' %}
+                                <p class="text-primary fw-bold">Select ALL correct options:</p>
+                                {% for option in question.options %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="answer" value="{{ option }}" id="option-{{ loop.index }}">
+                                        <label class="form-check-label" for="option-{{ loop.index }}">{{ option }}</label>
+                                    </div>
+                                {% endfor %}
+                                <p class="text-muted mt-2 small">Type: Checkbox</p>
+
+                            {% elif question.question_type == 'short_answer' %}
+                                <textarea class="form-control" name="answer" rows="3" placeholder="Type your short answer or key phrase here..." required></textarea>
+                                <p class="text-muted mt-2 small">Type: Short Answer</p>
+
+                            {% elif question.question_type == 'dropdown' %}
+                                <select name="answer" class="form-select" required>
+                                    <option value="" disabled selected>Select an option</option>
+                                    {% for option in question.options %}
+                                        <option value="{{ option }}">{{ option }}</option>
+                                    {% endfor %}
+                                </select>
+                                <p class="text-muted mt-2 small">Type: Dropdown</p>
+                                
+                            {% else %}
+                                <p class="alert alert-danger">Error: Unsupported Question Type ({{ question.question_type }})</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mt-4 pt-3 border-top">
+                            <h6 class="mb-2">Question Feedback (Optional)</h6>
+                            <div class="form-group mb-2">
+                                <select name="feedback_type" class="form-select form-select-sm mb-2">
+                                    <option value="" selected>Rate Question Quality...</option>
+                                    <option value="positive">👍 Good Question</option>
+                                    <option value="negative">👎 Poor/Irrelevant Question</option>
+                                    <option value="neutral">😐 Neutral</option>
+                                </select>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="flag_question" value="1" id="flag-question">
+                                    <label class="form-check-label text-danger" for="flag-question">
+                                        🚩 Flag Question (Error/Problematic)
+                                    </label>
+                                </div>
+                                <textarea name="feedback_comment" class="form-control form-control-sm mt-2" rows="2" placeholder="Add specific comments..."></textarea>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">Submit Answer</button>
+                    </form>
+                </div>
+
+                <div id="evaluation-section" style="{% if not show_evaluation %}display:none;{% endif %}">
+                    <hr>
+                    <h4 class="mb-3">Evaluation: <span class="badge bg-{% if is_correct %}success{% else %}danger{% endif %}">{{ 'CORRECT' if is_correct else 'INCORRECT' }}</span></h4>
+
+                    <div class="alert alert-light border">
+                        <p class="mb-1"><strong>Your Answer:</strong> {{ user_answer }}</p>
+                        {% if not is_correct %}
+                            <p class="mb-1 text-danger"><strong>Correct Answer:</strong> {{ correct_answer }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <h5 class="mt-4">💡 Explanation:</h5>
+                    <p>{{ explanation }}</p>
+
+                    <a href="{{ url_for('next_question_adaptive', quiz_id=quiz.id) }}" class="btn btn-info btn-lg w-100 mt-4">
+                        {% if current_index + 1 >= quiz_length %}
+                            Finalize Quiz & View Performance
+                        {% else %}
+                            Next Adaptive Question (Q{{ current_index + 2 }} / {{ quiz_length }})
+                        {% endif %}
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Start time tracking when the page loads
+        const startTime = Date.now();
+        const timeTakenInput = document.getElementById('time_taken');
+        const quizForm = document.getElementById('quiz-form');
+
+        // Update time_taken before submitting the form
+        if(quizForm) {
+            quizForm.addEventListener('submit', function() {
+                const endTime = Date.now();
+                const timeInSeconds = Math.round((endTime - startTime) / 1000);
+                timeTakenInput.value = timeInSeconds;
+            });
+        }
+    </script>
+</body>
+</html>

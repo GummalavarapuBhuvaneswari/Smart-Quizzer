@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Learning Suggestions - Smart Quizzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-robot text-purple-500 mr-3"></i>
+                AI Learning Coach
+            </h1>
+            <p class="text-xl text-gray-600">Personalized suggestions to boost your learning journey</p>
+        </div>
+
+        <!-- Performance Summary -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+            <div class="flex flex-col lg:flex-row items-center justify-between">
+                <div class="text-center lg:text-left mb-4 lg:mb-0">
+                    <h2 class="text-2xl font-bold text-gray-800">{{ quiz.title }}</h2>
+                    <p class="text-gray-600">Topic: {{ quiz.topic }} • {{ quiz.created_at[:10] }}</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-5xl font-bold 
+                        {% if score >= 90 %}text-green-500
+                        {% elif score >= 75 %}text-blue-500
+                        {% elif score >= 60 %}text-yellow-500
+                        {% else %}text-red-500{% endif %}">
+                        {{ "%.1f"|format(score) }}%
+                    </div>
+                    <p class="text-gray-600">{{ correct_count }}/{{ total_questions }} correct</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Voice Message Section -->
+        <div class="bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl shadow-lg p-6 mb-8 text-white">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center mb-2">
+                        <i class="fas fa-volume-up text-2xl mr-3"></i>
+                        <h3 class="text-xl font-bold">Coach's Message</h3>
+                    </div>
+                    <p class="text-lg" id="voiceMessage">{{ voice_message }}</p>
+                </div>
+                <button onclick="speakMessage()" class="bg-white text-purple-600 p-3 rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fas fa-play text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Motivational Quote -->
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-2xl p-6 mb-8">
+            <div class="flex items-start">
+                <i class="fas fa-quote-left text-yellow-500 text-2xl mr-4 mt-1"></i>
+                <div>
+                    <p class="text-lg text-gray-800 italic">{{ motivational_quote }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Suggestions -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {% for suggestion in suggestions %}
+            <div class="bg-white rounded-2xl shadow-lg p-6 border-l-4 
+                {% if suggestion.type == 'challenge' %}border-green-400
+                {% elif suggestion.type == 'practice' %}border-blue-400
+                {% elif suggestion.type == 'foundation' %}border-red-400
+                {% elif suggestion.type == 'focus' %}border-purple-400
+                {% elif suggestion.type == 'difficulty' %}border-orange-400
+                {% elif suggestion.type == 'strategy' %}border-indigo-400
+                {% else %}border-gray-400{% endif %}">
+                <div class="flex items-start mb-4">
+                    <span class="text-2xl mr-3">{{ suggestion.icon }}</span>
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800">{{ suggestion.title }}</h3>
+                        <p class="text-gray-600 mt-2">{{ suggestion.description }}</p>
+                    </div>
+                </div>
+                
+                {% if suggestion.type == 'focus' and weak_topics %}
+                <div class="mt-4">
+                    <div class="bg-gray-100 rounded-lg p-3">
+                        <h4 class="font-semibold text-gray-700 mb-2">Weak Areas to Review:</h4>
+                        <ul class="list-disc list-inside text-gray-600">
+                            {% for topic, count in weak_topics.items() %}
+                            <li>{{ topic }} ({{ count }} questions missed)</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <a href="/create_quiz" class="bg-green-500 hover:bg-green-600 text-white py-4 px-6 rounded-xl transition-colors text-center flex items-center justify-center">
+                <i class="fas fa-plus-circle mr-2"></i>
+                Create New Quiz
+            </a>
+            <a href="/dashboard" class="bg-blue-500 hover:bg-blue-600 text-white py-4 px-6 rounded-xl transition-colors text-center flex items-center justify-center">
+                <i class="fas fa-tachometer-alt mr-2"></i>
+                Back to Dashboard
+            </a>
+            <a href="/performance/{{ quiz.id }}" class="bg-purple-500 hover:bg-purple-600 text-white py-4 px-6 rounded-xl transition-colors text-center flex items-center justify-center">
+                <i class="fas fa-chart-bar mr-2"></i>
+                Detailed Analysis
+            </a>
+        </div>
+
+        <!-- Progress Visualization -->
+        <div class="bg-white rounded-2xl shadow-lg p-6">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+                <i class="fas fa-chart-line text-green-500 mr-2"></i>
+                Your Learning Path
+            </h3>
+            
+            <div class="space-y-4">
+                <!-- Current Level -->
+                <div class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                            {% if performance_level == "excellent" %}A+
+                            {% elif performance_level == "good" %}B+
+                            {% elif performance_level == "average" %}C+
+                            {% else %}D{% endif %}
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800">Current Performance Level</h4>
+                            <p class="text-gray-600 capitalize">{{ performance_level }}</p>
+                        </div>
+                    </div>
+                    <span class="text-2xl">
+                        {% if performance_level == "excellent" %}🏆
+                        {% elif performance_level == "good" %}⭐
+                        {% elif performance_level == "average" %}📈
+                        {% else %}🌱{% endif %}
+                    </span>
+                </div>
+
+                <!-- Next Steps -->
+                <div class="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl">
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                            <i class="fas fa-arrow-up"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-800">Next Achievement</h4>
+                            <p class="text-gray-600">
+                                {% if score < 60 %}Reach 60% proficiency
+                                {% elif score < 75 %}Achieve 75% mastery
+                                {% elif score < 90 %}Reach 90% excellence
+                                {% else %}Maintain 90%+ performance{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <span class="text-2xl">🎯</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Synthesis Script -->
+    <script>
+        function speakMessage() {
+            const message = document.getElementById('voiceMessage').textContent;
+            
+            if ('speechSynthesis' in window) {
+                // Stop any ongoing speech
+                window.speechSynthesis.cancel();
+                
+                const speech = new SpeechSynthesisUtterance();
+                speech.text = message;
+                speech.volume = 1;
+                speech.rate = 1;
+                speech.pitch = 1;
+                
+                // Select a voice
+                const voices = window.speechSynthesis.getVoices();
+                const englishVoice = voices.find(voice => 
+                    voice.lang.startsWith('en') && voice.name.includes('Female')) || 
+                    voices.find(voice => voice.lang.startsWith('en'));
+                
+                if (englishVoice) {
+                    speech.voice = englishVoice;
+                }
+                
+                window.speechSynthesis.speak(speech);
+                
+                // Change button icon while speaking
+                const button = event.target.closest('button');
+                const icon = button.querySelector('i');
+                icon.className = 'fas fa-stop text-xl';
+                
+                speech.onend = function() {
+                    icon.className = 'fas fa-play text-xl';
+                };
+                
+                button.onclick = function() {
+                    if (window.speechSynthesis.speaking) {
+                        window.speechSynthesis.cancel();
+                        icon.className = 'fas fa-play text-xl';
+                    }
+                };
+            } else {
+                alert('Text-to-speech is not supported in your browser. Please try Chrome, Edge, or Safari.');
+            }
+        }
+
+        // Load voices when page loads
+        window.speechSynthesis.onvoiceschanged = function() {
+            // Voices are loaded
+        };
+
+        // Add some interactive animations
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate cards on load
+            const cards = document.querySelectorAll('.bg-white');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 200);
+            });
+
+            // Add hover effects to suggestion cards
+            const suggestionCards = document.querySelectorAll('.bg-white');
+            suggestionCards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-5px)';
+                    this.style.boxShadow = '0 20px 40px rgba(0,0,0,0.1)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                });
+            });
+        });
+
+        // Auto-speak welcome message after a delay
+        setTimeout(() => {
+            const welcomeMessage = "Welcome to your AI learning coach! Here are your personalized suggestions to improve your skills.";
+            if ('speechSynthesis' in window && Math.random() > 0.5) { // 50% chance to auto-speak
+                const speech = new SpeechSynthesisUtterance(welcomeMessage);
+                speech.volume = 0.7;
+                speech.rate = 1;
+                window.speechSynthesis.speak(speech);
+            }
+        }, 1000);
+    </script>
+
+    <style>
+        .fade-in {
+            animation: fadeIn 0.8s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .pulse-glow {
+            animation: pulseGlow 2s infinite;
+        }
+        
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 20px rgba(147, 51, 234, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(147, 51, 234, 0.6); }
+            100% { box-shadow: 0 0 20px rgba(147, 51, 234, 0.3); }
+        }
+        
+        .typewriter {
+            overflow: hidden;
+            border-right: 2px solid #8b5cf6;
+            white-space: nowrap;
+            animation: typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;
+        }
+        
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+        
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #8b5cf6 }
+        }
+    </style>
+</body>
+</html>
