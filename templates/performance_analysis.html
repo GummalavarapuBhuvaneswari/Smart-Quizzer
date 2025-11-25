@@ -1,169 +1,422 @@
-{% extends "base.html" %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Analysis: {{ quiz.title }}</title>
 
-{% block content %}
-<div class="max-w-6xl mx-auto p-4">
-    <h1 class="text-3xl font-bold mb-6 text-gray-800">📊 Performance Analysis: {{ quiz.title }}</h1>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #4f46e5;       /* Indigo 600 */
+      --bg-body: #f8fafc;       /* Slate 50 */
+      --card-bg: #ffffff;
+      --text-main: #0f172a;     /* Slate 900 */
+      --text-muted: #64748b;    /* Slate 500 */
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* --- Animations --- */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-entry { animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+
+    /* --- Hero Section --- */
+    .hero-section {
+      background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%);
+      color: white;
+      padding: 3rem 2rem 5rem 2rem;
+      border-radius: 0 0 40px 40px;
+      margin-bottom: -3rem;
+      position: relative;
+      box-shadow: 0 10px 30px -10px rgba(67, 56, 202, 0.5);
+    }
     
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <!-- 1. Score Breakdown -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col items-center justify-center">
-            <h3 class="text-lg font-semibold mb-3 text-pink-600">🎯 Score Breakdown</h3>
-            <div class="relative w-24 h-24 mb-4">
-                <svg class="w-full h-full" viewBox="0 0 100 100">
-                    <!-- Background Circle -->
-                    <circle class="text-gray-200 stroke-current" stroke-width="8" cx="50" cy="50" r="45" fill="transparent"></circle>
-                    <!-- Progress Arc -->
-                    {% set score_percent = score|int %}
-                    <circle class="stroke-current transition-all duration-500"
-                            stroke-width="8" cx="50" cy="50" r="45" fill="transparent"
-                            stroke-dasharray="{{ score_percent * 2.827 }}, 282.7"
-                            transform="rotate(-90 50 50)"
-                            stroke="{{ 'rgb(34, 197, 94)' if score_percent >= 60 else 'rgb(249, 115, 22)' }}">
-                    </circle>
-                    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" class="text-xl font-extrabold" fill="rgb(31, 41, 55)">
-                        {{ score_percent }}%
-                    </text>
-                </svg>
-            </div>
-            <p class="text-green-600 font-bold text-lg mt-2">{{ correct_count }} Correct</p>
-            <p class="text-red-600 font-bold text-lg">{{ incorrect_count }} Incorrect</p>
-        </div>
+    .glass-btn {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 50px;
+      padding: 8px 20px;
+      color: white;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+    }
+    .glass-btn:hover { background: rgba(255, 255, 255, 0.25); color: white; transform: translateY(-2px); }
 
-        <!-- 2. Time Analysis -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 flex flex-col items-center justify-center">
-            <h3 class="text-lg font-semibold mb-4 text-red-500">⏱️ Time Analysis</h3>
-            <div class="text-4xl font-extrabold text-red-500 mb-2">
-                {{ total_time }}s
-            </div>
-            <div class="flex space-x-6 mt-2">
-                <div class="text-center">
-                    <p class="text-xl font-bold text-red-500">{{ "%.1f"|format(avg_time_per_q) }}s</p>
-                    <p class="text-sm text-gray-500">Avg per Q</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-xl font-bold text-gray-700">{{ total_questions }}</p>
-                    <p class="text-sm text-gray-500">Qs Answered</p>
-                </div>
-            </div>
-        </div>
+    /* --- Cards --- */
+    .dashboard-card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      padding: 1.5rem;
+      height: 100%;
+    }
 
-        <!-- 3. Difficulty Analysis -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100 col-span-2">
-            <h3 class="text-lg font-semibold mb-4 text-orange-500">⚡ Difficulty Analysis</h3>
-            <div class="space-y-3">
-                {% for diff in ['Easy', 'Medium', 'Hard'] %}
-                {% set data = difficulty_breakdown[diff] %}
-                {% set total = data.total %}
-                {% set correct = data.correct %}
-                {% set percentage = (correct / total * 100) if total > 0 else 0 %}
-                {% set color_map = {'Easy': 'bg-green-500', 'Medium': 'bg-yellow-500', 'Hard': 'bg-red-500'} %}
-                <div class="flex items-center">
-                    <span class="w-20 font-medium text-gray-700">{{ diff }}</span>
-                    <div class="flex-1 ml-4">
-                        <div class="w-full bg-gray-200 rounded-full h-3">
-                            <div class="{{ color_map[diff] if diff in color_map else 'bg-gray-500' }} h-3 rounded-full transition-all duration-500" 
-                                 style="width: {{ percentage }}%"></div>
-                        </div>
-                    </div>
-                    <span class="w-24 text-right text-sm font-semibold text-gray-700">
-                        {{ correct }}/{{ total }} ({{ "%.0f"|format(percentage) }}%)
-                    </span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
+    .card-header-custom {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;
+    }
+    .card-title { font-weight: 700; color: var(--text-main); font-size: 1.1rem; margin: 0; }
+    .card-subtitle { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+
+    /* --- Grade Badge --- */
+    .grade-badge {
+        width: 80px; height: 80px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 2.5rem; font-weight: 800;
+        background: white;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .grade-S { color: #8b5cf6; border: 5px solid #8b5cf6; } 
+    .grade-A { color: #10b981; border: 5px solid #10b981; } 
+    .grade-B { color: #3b82f6; border: 5px solid #3b82f6; } 
+    .grade-C { color: #f59e0b; border: 5px solid #f59e0b; } 
+    .grade-F { color: #ef4444; border: 5px solid #ef4444; } 
+
+    /* --- Question List --- */
+    .q-card {
+        background: white;
+        border-radius: var(--radius-md);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        transition: transform 0.2s;
+    }
+    .q-card:hover { transform: translateY(-2px); border-color: #cbd5e1; }
     
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- 4. Question Type Performance -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-            <h3 class="text-lg font-semibold mb-4 text-indigo-500">📑 Question Type Performance</h3>
-            <div class="space-y-4">
-                {% for type, data in type_breakdown.items() %}
-                {% set total = data.total %}
-                {% set correct = data.correct %}
-                {% set percentage = (correct / total * 100) if total > 0 else 0 %}
-                <div class="flex items-center">
-                    <span class="w-28 font-medium text-gray-700">{{ type|upper|replace('_', ' ') }}</span>
-                    <div class="flex-1 ml-4">
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="bg-indigo-600 h-2 rounded-full" 
-                                 style="width: {{ percentage }}%"></div>
-                        </div>
-                    </div>
-                    <span class="w-16 text-right text-sm font-semibold text-gray-700">
-                        {{ "%.0f"|format(percentage) }}%
-                    </span>
-                </div>
-                {% endfor %}
-            </div>
+    .q-header {
+        padding: 12px 20px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .diff-bar-container { display: flex; gap: 4px; align-items: center; }
+    .diff-pill { width: 24px; height: 6px; border-radius: 4px; background: #e2e8f0; }
+    .diff-easy .pill-1 { background: #10b981; }
+    .diff-medium .pill-1, .diff-medium .pill-2 { background: #f59e0b; }
+    .diff-hard .pill-1, .diff-hard .pill-2, .diff-hard .pill-3 { background: #ef4444; }
+
+    .answer-section { padding: 20px; }
+    .ans-box {
+        padding: 12px 16px; border-radius: 8px; border: 1px solid transparent;
+        font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .user-correct { background: #ecfdf5; border-color: #a7f3d0; color: #064e3b; }
+    .user-wrong { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+    .correct-ans { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+    
+    .filter-btn {
+        border-radius: 20px; padding: 6px 18px; font-size: 0.9rem; font-weight: 600;
+        border: 1px solid #cbd5e1; background: white; color: var(--text-muted);
+    }
+    .filter-btn.active { background: var(--text-main); color: white; border-color: var(--text-main); }
+
+  </style>
+</head>
+<body>
+
+  {% include 'navbar.html' %}
+
+  <div class="hero-section">
+    <div class="container animate-entry">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+        <div class="mb-3 mb-md-0">
+          <span class="badge bg-white bg-opacity-25 border border-white border-opacity-25 mb-2 px-3 py-1">Performance Report</span>
+          <h2 class="fw-bold mb-1 display-6">{{ quiz.title }}</h2>
+          <div class="opacity-75 small">
+            <i class="bi bi-calendar3 me-1"></i> {{ quiz.created_at[:10] }} 
+            <span class="mx-2">•</span> 
+            <i class="bi bi-tag-fill me-1"></i> {{ quiz.quiz_type|replace('_', ' ')|title }}
+          </div>
         </div>
         
-        <!-- 5. Time Per Question Breakdown -->
-        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-            <h3 class="text-lg font-semibold mb-4 text-purple-500">⏱️ Time Per Question Breakdown</h3>
-            <div class="space-y-3">
-                {% set max_time = time_per_q_list|max if time_per_q_list else 1 %}
-                {% for time_sec in time_per_q_list %}
-                {% set q_index = loop.index %}
-                {% set percent_of_max = (time_sec / max_time * 100) if max_time > 0 else 0 %}
-                <div class="flex items-center">
-                    <span class="w-16 font-medium text-gray-700">Q{{ q_index }}</span>
-                    <div class="flex-1 ml-4">
-                        <div class="w-full bg-gray-300 rounded-full h-3">
-                            <div class="bg-purple-600 h-3 rounded-full" 
-                                 style="width: {{ percent_of_max }}%"></div>
-                        </div>
-                    </div>
-                    <span class="w-16 text-right text-sm font-semibold text-gray-700">
-                        {{ time_sec }}s
-                    </span>
-                </div>
-                {% endfor %}
-            </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('leaderboard', quiz_id=quiz.id) }}" class="glass-btn" style="background: rgba(251, 191, 36, 0.15); border-color: rgba(251, 191, 36, 0.4); color: #fbbf24;">
+                <i class="bi bi-trophy-fill me-1"></i> Leaderboard
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="glass-btn"><i class="bi bi-grid me-1"></i> Dashboard</a>
+            <button onclick="window.print()" class="glass-btn"><i class="bi bi-printer me-1"></i> Print</button>
         </div>
+      </div>
     </div>
-    
-    <h2 class="text-2xl font-bold mb-4 mt-8 text-gray-800 border-b pb-2">Question Details & Evaluation</h2>
+  </div>
 
-    <!-- Question Details Section -->
-    <div class="space-y-4">
-        {% for q in questions %}
-        {% set is_correct = q.get('is_correct', False) %}
-        {% set q_index = loop.index %}
-        <div class="p-4 rounded-xl border-l-4 shadow-md {% if is_correct %}bg-green-50 border-green-600{% else %}bg-red-50 border-red-600{% endif %}">
-            <div class="flex justify-between items-start mb-2">
-                <h4 class="font-semibold text-lg">
-                    Q{{ q_index }} ({{ q.difficulty|capitalize }}) - {{ q.question_text }}
-                </h4>
-                <div class="text-right">
-                    <span class="font-bold text-sm {% if is_correct %}text-green-700{% else %}text-red-700{% endif %}">
-                        {% if is_correct %}✓ Correct{% else %}✗ Incorrect{% endif %}
-                    </span>
-                    <p class="text-xs text-gray-500 mt-1">Time: {{ q.response_time }}s</p>
-                </div>
-            </div>
-            
-            <p class="text-sm text-gray-700">
-                Your Answer: <strong>{{ q.user_answer }}</strong> 
-            </p>
-            {% if not is_correct %}
-            <p class="text-sm text-gray-700 mt-1">
-                Correct Answer: <strong class="text-green-700">{{ q.correct_answer }}</strong>
-            </p>
+  <div class="container mb-5" style="position: relative; z-index: 2;">
+    
+    <div class="row g-4">
+      
+      <div class="col-lg-4 col-md-6 animate-entry delay-1">
+        <div class="dashboard-card d-flex flex-column justify-content-center align-items-center text-center">
+            {% set grade = 'F' %}
+            {% if score >= 90 %}{% set grade = 'S' %}
+            {% elif score >= 80 %}{% set grade = 'A' %}
+            {% elif score >= 70 %}{% set grade = 'B' %}
+            {% elif score >= 60 %}{% set grade = 'C' %}
             {% endif %}
 
-            <div class="mt-3 text-sm p-3 bg-white rounded border">
-                <strong>Explanation:</strong> {{ q.explanation }}
+            <div class="grade-badge grade-{{ grade }} mb-3">{{ grade }}</div>
+            <h1 class="fw-bold display-5 mb-0" style="color: var(--text-main);">{{ score | round(1) }}%</h1>
+            <p class="text-muted small mb-0 fw-semibold text-uppercase ls-1">Final Score</p>
+            <div class="mt-4 w-100 d-flex justify-content-center gap-4 border-top pt-3">
+                <div><span class="fw-bold text-success fs-5">{{ correct_count }}</span> <span class="small text-muted d-block">Correct</span></div>
+                <div><span class="fw-bold text-danger fs-5">{{ (total_questions - correct_count) }}</span> <span class="small text-muted d-block">Wrong</span></div>
             </div>
         </div>
-        {% endfor %}
+      </div>
+
+      <div class="col-lg-4 col-md-6 animate-entry delay-1">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h6 class="card-title">AI Insights</h6>
+                <span class="card-subtitle"><i class="bi bi-stars text-warning"></i> Analysis</span>
+            </div>
+            
+            <div class="p-3 bg-light rounded mb-2 border-start border-4 border-primary">
+                <div class="fw-bold text-primary mb-1"><i class="bi bi-lightning-charge-fill me-1"></i> Speed Analysis</div>
+                <p class="small text-muted mb-0">Avg time/question: <strong>{{ avg_time_per_q|round(1) }}s</strong>.</p>
+            </div>
+
+            <div class="p-3 bg-light rounded border-start border-4 border-warning">
+                <div class="fw-bold text-dark mb-1"><i class="bi bi-bullseye me-1"></i> Focus Area</div>
+                <p class="small text-muted mb-0">Check the Time Analysis graph below to see which questions took the longest!</p>
+            </div>
+        </div>
+      </div>
+
+      <div class="col-lg-4 col-md-12 animate-entry delay-1">
+        <div class="dashboard-card">
+            <div class="card-header-custom">
+                <h6 class="card-title">Topic Performance</h6>
+                <span class="card-subtitle">Mastery by Type</span>
+            </div>
+            <div style="height: 200px;">
+                <canvas id="topicBarChart"></canvas>
+            </div>
+        </div>
+      </div>
     </div>
 
-    <div class="text-center mt-8">
-        <a href="{{ url_for('dashboard') }}" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold">
-            Back to Dashboard
-        </a>
+    <div class="row g-4 mt-1 animate-entry delay-2">
+        <div class="col-md-8">
+            <div class="dashboard-card">
+                <div class="card-header-custom">
+                    <h6 class="card-title"><i class="bi bi-clock-history me-2 text-primary"></i>Time Analysis</h6>
+                    <span class="card-subtitle">Seconds per Question</span>
+                </div>
+                <div style="height: 250px; width: 100%;">
+                    <canvas id="timeLineChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+             <div class="dashboard-card">
+                <div class="card-header-custom">
+                    <h6 class="card-title">Difficulty Accuracy</h6>
+                    <span class="card-subtitle">Stats</span>
+                </div>
+                <div style="height: 250px; width: 100%;">
+                    <canvas id="diffBarChart"></canvas>
+                </div>
+             </div>
+        </div>
     </div>
-</div>
-{% endblock %}
+
+    <div class="mt-5 animate-entry delay-3">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold mb-0">Question Review</h4>
+            <div class="d-flex gap-2 mt-3 mt-md-0" id="filter-container">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="correct"><i class="bi bi-check-lg text-success"></i> Correct</button>
+                <button class="filter-btn" data-filter="wrong"><i class="bi bi-x-lg text-danger"></i> Incorrect</button>
+            </div>
+        </div>
+
+        <div id="questions-list">
+            {% for q in questions %}
+                {% if 'user_answer' in q %}
+                    {% set correct_flag = q.is_correct if q.is_correct is defined else (q.user_answer == q.correct_answer) %}
+                    {% set diff = q.difficulty|lower %}
+                    
+                    <div class="q-card q-item {{ 'type-correct' if correct_flag else 'type-wrong' }}">
+                        <div class="q-header">
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge bg-dark rounded-pill">Q{{ loop.index }}</span>
+                                <div class="diff-bar-container diff-{{ diff }}" title="Difficulty: {{ diff|capitalize }}">
+                                    <div class="diff-pill pill-1"></div>
+                                    <div class="diff-pill pill-2"></div>
+                                    <div class="diff-pill pill-3"></div>
+                                    <span class="small text-muted ms-2 fw-semibold" style="font-size: 0.75rem;">{{ diff|upper }}</span>
+                                </div>
+                            </div>
+                            <div class="small text-muted"><i class="bi bi-clock me-1"></i> {{ q.response_time|round(1) }}s</div>
+                        </div>
+
+                        <div class="answer-section">
+                            <h6 class="fw-bold text-dark mb-3" style="line-height: 1.5;">{{ q.question_text }}</h6>
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="small text-muted fw-bold mb-1">YOUR ANSWER</div>
+                                    <div class="ans-box {{ 'user-correct' if correct_flag else 'user-wrong' }}">
+                                        {{ q.user_answer }}
+                                        {% if correct_flag %}<i class="bi bi-check-circle-fill"></i>{% else %}<i class="bi bi-x-circle-fill"></i>{% endif %}
+                                    </div>
+                                </div>
+                                {% if not correct_flag %}
+                                <div class="col-md-6">
+                                    <div class="small text-muted fw-bold mb-1">CORRECT ANSWER</div>
+                                    <div class="ans-box correct-ans">
+                                        {{ q.correct_answer }}
+                                        <i class="bi bi-check-lg"></i>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            {% if q.explanation %}
+                            <div class="mt-3 p-3 bg-light rounded border border-light-subtle">
+                                <small class="fw-bold text-primary">EXPLANATION</small>
+                                <p class="small text-muted mb-0 mt-1">{{ q.explanation }}</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- 1. Confetti ---
+    document.addEventListener("DOMContentLoaded", () => {
+        if({{ score }} >= 70) {
+            try { confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } }); } catch(e){}
+        }
+    });
+
+    // --- 2. Filter Logic ---
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const filter = btn.getAttribute('data-filter');
+            document.querySelectorAll('.q-item').forEach(q => {
+                if (filter === 'all') q.style.display = 'block';
+                else if (filter === 'correct') q.style.display = q.classList.contains('type-correct') ? 'block' : 'none';
+                else if (filter === 'wrong') q.style.display = q.classList.contains('type-wrong') ? 'block' : 'none';
+            });
+        });
+    });
+
+    // --- 3. Chart Data ---
+    const typeData = {{ type_breakdown | tojson }};
+    const diffData = {{ difficulty_breakdown | tojson }};
+
+    function getDataSafe(src, key) {
+        if (!src) return { correct: 0, total: 0 };
+        const found = Object.keys(src).find(k => k.toLowerCase() === key.toLowerCase());
+        return found ? src[found] : { correct: 0, total: 0 };
+    }
+
+    // Chart 1: Topic Performance
+    new Chart(document.getElementById('topicBarChart'), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(typeData).map(k => k.replace(/_/g, ' ').toUpperCase()),
+            datasets: [{
+                label: 'Mastery %',
+                data: Object.values(typeData).map(v => (v.total ? (v.correct/v.total)*100 : 0)),
+                backgroundColor: 'rgba(79, 70, 229, 0.85)', borderRadius: 4
+            }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { max: 100 } } }
+    });
+
+    // Chart 2: TIME ANALYSIS (New Logic)
+    const timeLabels = [];
+    const timeData = [];
+    {% for q in questions %}
+        timeLabels.push("Q{{ loop.index }}");
+        timeData.push({{ q.response_time | default(0) }});
+    {% endfor %}
+
+    new Chart(document.getElementById('timeLineChart'), {
+        type: 'line',
+        data: {
+            labels: timeLabels,
+            datasets: [{
+                label: 'Time Taken (s)',
+                data: timeData,
+                borderColor: '#4f46e5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                borderWidth: 2,
+                tension: 0.3, // Curve the line slightly
+                fill: true,
+                pointRadius: 4,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#4f46e5'
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { borderDash: [5, 5] }, title: { display: true, text: 'Seconds' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Chart 3: Difficulty Breakdown
+    const dKeys = ['easy', 'medium', 'hard'];
+    new Chart(document.getElementById('diffBarChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Easy', 'Medium', 'Hard'],
+            datasets: [{
+                label: 'Accuracy %',
+                data: dKeys.map(k => {
+                    const s = getDataSafe(diffData, k);
+                    return s.total ? (s.correct/s.total)*100 : 0;
+                }),
+                backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], borderRadius: 6
+            }]
+        },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { max: 100 } } }
+    });
+  </script>
+</body>
+</html>
