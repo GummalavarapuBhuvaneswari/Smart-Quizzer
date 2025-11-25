@@ -7,7 +7,7 @@ class GeminiQuizEngine:
     def __init__(self):
         try:
             # NOTE: Using the placeholder key found in your uploaded files.
-            genai.configure(api_key="AIzaSyD4Qofgsr6eiSYf0OROUjTwbWhJXwYwL2A")
+            genai.configure(api_key="AIzaSyC3Z1zu0l0M3fMvdHAH1gyYmNai3ctRU2I")
             self.model = genai.GenerativeModel("gemini-2.5-flash")
             self.demo_mode = False
             print("✅ Gemini 2.5 Flash initialized successfully!")
