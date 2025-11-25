@@ -1,67 +1,344 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-md">
-    <h2 class="text-2xl font-bold mb-6">Create New Quiz with AI</h2>
+
+<style>
+    /* --- Theming --- */
+    :root {
+        --primary: #6366f1;
+        --primary-dark: #4f46e5;
+        --secondary: #ec4899;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        --card-shadow: 0 20px 40px -10px rgba(0,0,0,0.1);
+    }
+
+    body {
+        background: #f8fafc; /* Fallback */
+        background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,0) 0, hsla(253,16%,7%,0) 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,.1) 0, hsla(225,39%,30%,0) 50%), radial-gradient(at 100% 0%, hsla(339,49%,30%,.1) 0, hsla(339,49%,30%,0) 50%);
+    }
+
+    /* --- Layout --- */
+    .create-quiz-wrapper {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 0 20px;
+        animation: fadeUp 0.6s ease-out;
+    }
+
+    .main-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        border: 1px solid rgba(255,255,255,0.5);
+        padding: 40px;
+        box-shadow: var(--card-shadow);
+    }
+
+    /* --- Typography --- */
+    .page-title {
+        font-weight: 800;
+        background: linear-gradient(to right, #1e293b, #4f46e5);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+
+    /* --- Form Elements --- */
+    .form-label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .modern-input {
+        width: 100%;
+        padding: 16px;
+        background: #f1f5f9;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+    .modern-input:focus {
+        background: #fff;
+        border-color: var(--primary);
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+
+    /* --- Visual Difficulty Selector --- */
+    .difficulty-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 15px;
+    }
     
-    <div class="mb-4 p-4 bg-blue-50 rounded-lg">
-        <p class="text-blue-700">🤖 Powered by Gemini AI - Generate questions from text, PDF, or PPT!</p>
+    /* Hide default radio */
+    .diff-radio { display: none; }
+
+    .diff-card {
+        padding: 15px;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .diff-card:hover { transform: translateY(-2px); border-color: #cbd5e1; }
+    
+    .diff-icon { font-size: 1.5rem; display: block; margin-bottom: 5px; }
+    .diff-name { font-weight: 700; color: #475569; display: block; }
+    
+    /* Selected States */
+    #diffEasy:checked + .diff-card { border-color: var(--success); background: #ecfdf5; }
+    #diffEasy:checked + .diff-card .diff-name { color: var(--success); }
+    
+    #diffMedium:checked + .diff-card { border-color: var(--warning); background: #fffbeb; }
+    #diffMedium:checked + .diff-card .diff-name { color: var(--warning); }
+    
+    #diffHard:checked + .diff-card { border-color: var(--danger); background: #fef2f2; }
+    #diffHard:checked + .diff-card .diff-name { color: var(--danger); }
+
+    /* --- Source Tabs --- */
+    .source-selector {
+        background: #f1f5f9;
+        padding: 5px;
+        border-radius: 16px;
+        display: flex;
+        margin-bottom: 25px;
+    }
+    .source-btn {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        background: transparent;
+        border-radius: 12px;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .source-btn.active {
+        background: white;
+        color: var(--primary);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    /* --- File Upload Zone --- */
+    .upload-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 16px;
+        padding: 50px 20px;
+        text-align: center;
+        transition: all 0.2s;
+        cursor: pointer;
+        position: relative;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+        border-color: var(--primary);
+        background: #eef2ff;
+    }
+    .upload-icon {
+        font-size: 3rem;
+        color: #94a3b8;
+        margin-bottom: 15px;
+        transition: color 0.2s;
+    }
+    .upload-zone:hover .upload-icon { color: var(--primary); }
+
+    /* --- Submit Button --- */
+    .submit-btn {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        width: 100%;
+        padding: 18px;
+        border-radius: 14px;
+        border: none;
+        font-weight: 800;
+        font-size: 1.1rem;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        margin-top: 30px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .submit-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
+    }
+
+    /* --- Utilities --- */
+    .hidden { display: none; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<div class="create-quiz-wrapper">
+    
+    <div class="text-center mb-5">
+        <h1 class="page-title display-5">Create Magic Quiz</h1>
+        <p class="text-muted">Transform your notes into an adaptive learning experience.</p>
     </div>
-    
-    <form method="POST" enctype="multipart/form-data">
-        <div class="mb-4">
-            <label class="block text-gray-700 mb-2">Quiz Topic</label>
-            <input type="text" name="topic" required 
-                   class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
-                   placeholder="e.g., Artificial Intelligence, Science, History">
-        </div>
 
-        <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-                <label class="block text-gray-700 mb-2">Quiz Type</label>
-                <select name="quiz_type" class="w-full px-3 py-2 border rounded-lg">
-                    <option value="adaptive" selected>Adaptive Quiz (1 Q at a time)</option>
-                    <option value="simple">Simple Quiz (All Qs on one page)</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-gray-700 mb-2">Starting Difficulty (Recommended: {{ current_difficulty }})</label>
-                <select name="difficulty" class="w-full px-3 py-2 border rounded-lg">
-                    <option value="Easy" {% if current_difficulty == 'Easy' %}selected{% endif %}>Easy</option>
-                    <option value="Medium" {% if current_difficulty == 'Medium' %}selected{% endif %}>Medium</option>
-                    <option value="Hard" {% if current_difficulty == 'Hard' %}selected{% endif %}>Hard</option>
-                </select>
-            </div>
-        </div>
-        
-        <h3 class="text-md font-semibold mt-6 mb-3">Content Source (Select one or the other)</h3>
-        
-        <div class="mb-4 border p-4 rounded-lg bg-gray-50">
-            <label class="block text-gray-700 mb-2 font-medium">1. Upload File (PDF/PPT/TXT)</label>
-            <input type="file" name="content_file" accept=".pdf,.pptx,.txt"
-                   class="w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:border-blue-500">
-            <p class="text-xs text-gray-500 mt-1">Upload PDF, PPTX, or TXT file for content extraction.</p>
-        </div>
+    <div class="main-card">
+        <form method="POST" enctype="multipart/form-data" id="quizForm">
+            
+            <input type="hidden" name="quiz_type" value="adaptive">
 
-        <div class="mb-4 border p-4 rounded-lg bg-gray-50">
-            <label class="block text-gray-700 mb-2 font-medium">2. Paste Text / URL Content</label>
-            <textarea name="content_text" rows="6"
-                      class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
-                      placeholder="Paste the learning material text or a URL here..."></textarea>
-        </div>
-        <div class="mb-6">
-            <label class="block text-gray-700 mb-2">Number of Questions</label>
-            <select name="num_questions" class="w-full px-3 py-2 border rounded-lg">
-                <option value="3">3 Questions</option>
-                <option value="5" selected>5 Questions</option>
-                <option value="10">10 Questions</option>
-            </select>
-            <p class="text-xs text-gray-500 mt-1">For Adaptive Quizzes, the AI will generate a pool of 2x this number.</p>
-        </div>
-        
-        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700">
-            🚀 Generate Quiz with AI
-        </button>
-    </form>
+            <div class="mb-4">
+                <label class="form-label">What is this quiz about?</label>
+                <input type="text" name="topic" required class="modern-input" placeholder="e.g. Quantum Physics, The French Revolution...">
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-8 mb-3 mb-md-0">
+                    <label class="form-label">Starting Difficulty</label>
+                    <div class="difficulty-grid">
+                        <input type="radio" name="difficulty" value="Easy" id="diffEasy" class="diff-radio">
+                        <label for="diffEasy" class="diff-card">
+                            <span class="diff-icon">🌱</span>
+                            <span class="diff-name">Easy</span>
+                        </label>
+
+                        <input type="radio" name="difficulty" value="Medium" id="diffMedium" class="diff-radio" checked>
+                        <label for="diffMedium" class="diff-card">
+                            <span class="diff-icon">⚖️</span>
+                            <span class="diff-name">Medium</span>
+                        </label>
+
+                        <input type="radio" name="difficulty" value="Hard" id="diffHard" class="diff-radio">
+                        <label for="diffHard" class="diff-card">
+                            <span class="diff-icon">🔥</span>
+                            <span class="diff-name">Hard</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Question Count</label>
+                    <input type="number" name="num_questions" class="modern-input text-center fw-bold" 
+                           min="3" max="50" value="5" style="height: 86px; font-size: 1.5rem;">
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label">Knowledge Source</label>
+                
+                <div class="source-selector">
+                    <button type="button" class="source-btn active" onclick="toggleSource('file')">
+                        <i class="bi bi-cloud-upload me-2"></i>Upload File
+                    </button>
+                    <button type="button" class="source-btn" onclick="toggleSource('text')">
+                        <i class="bi bi-type-text me-2"></i>Paste Text / URL
+                    </button>
+                </div>
+
+                <div id="fileSection">
+                    <div class="upload-zone" id="dropZone">
+                        <input type="file" name="file" id="fileInput" 
+                               style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;"
+                               accept=".pdf,.pptx,.txt">
+                        <div class="upload-icon"><i class="bi bi-file-earmark-arrow-up"></i></div>
+                        <h5 style="font-weight: 700; color: #334155; margin-bottom: 5px;">Drop file or Click to Upload</h5>
+                        <p style="color: #94a3b8; font-size: 0.9rem;">PDF, PPTX, or TXT (Max 10MB)</p>
+                        <div id="fileNameTag" class="hidden" style="margin-top: 15px;">
+                            <span class="badge bg-primary rounded-pill px-3 py-2">
+                                <i class="bi bi-check-circle me-1"></i> <span id="fileNameText"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="textSection" class="hidden">
+                    <textarea name="content" rows="6" class="modern-input" 
+                              style="font-family: monospace; line-height: 1.6;"
+                              placeholder="Paste your lecture notes, article text, or a website URL here..."></textarea>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn">
+                ✨ Generate Quiz
+            </button>
+
+        </form>
+    </div>
 </div>
+
+<div id="loadingOverlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:9999; align-items:center; justify-content:center; flex-direction:column; backdrop-filter: blur(5px);">
+    <div style="width: 60px; height: 60px; position: relative;">
+        <div style="position: absolute; width: 100%; height: 100%; border: 4px solid #e2e8f0; border-radius: 50%;"></div>
+        <div style="position: absolute; width: 100%; height: 100%; border: 4px solid transparent; border-top-color: #4f46e5; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+    </div>
+    <h3 style="margin-top: 25px; font-weight: 800; color: #1e293b;">AI is Thinking...</h3>
+    <p style="color: #64748b;">Reading your content & crafting questions</p>
+</div>
+
+<style>
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
+
+<script>
+    // --- Tab Logic ---
+    function toggleSource(type) {
+        const btns = document.querySelectorAll('.source-btn');
+        const fileSec = document.getElementById('fileSection');
+        const textSec = document.getElementById('textSection');
+
+        if (type === 'file') {
+            btns[0].classList.add('active');
+            btns[1].classList.remove('active');
+            fileSec.classList.remove('hidden');
+            textSec.classList.add('hidden');
+        } else {
+            btns[0].classList.remove('active');
+            btns[1].classList.add('active');
+            fileSec.classList.add('hidden');
+            textSec.classList.remove('hidden');
+        }
+    }
+
+    // --- Drag & Drop Visuals ---
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileNameTag = document.getElementById('fileNameTag');
+    const fileNameText = document.getElementById('fileNameText');
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        }, false);
+    });
+
+    // Show filename on selection
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            fileNameText.textContent = this.files[0].name;
+            fileNameTag.classList.remove('hidden');
+            dropZone.style.borderColor = '#4f46e5';
+            dropZone.style.background = '#eef2ff';
+        }
+    });
+
+    // --- Submit Loader ---
+    document.getElementById('quizForm').addEventListener('submit', function() {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    });
+</script>
+
 {% endblock %}
